@@ -19,6 +19,7 @@ import deleteDocumentsCommand from './documents/deleteDocumentsCommand'
 import createDocumentsCommand from './documents/createDocumentsCommand'
 import installCommand from './install/installCommand'
 import startCommand from './start/startCommand'
+import stratCommand from './start/stratCommand'
 import uninstallCommand from './uninstall/uninstallCommand'
 import hookGroup from './hook/hookGroup'
 import createHookCommand from './hook/createHookCommand'
@@ -78,6 +79,7 @@ export default [
   deleteGraphQLAPICommand,
   installCommand,
   startCommand,
+  stratCommand,
   uninstallCommand,
   execCommand,
 ]
