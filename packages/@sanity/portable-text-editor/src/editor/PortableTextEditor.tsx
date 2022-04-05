@@ -4,6 +4,7 @@ import {Subscription, Subject} from 'rxjs'
 import {distinctUntilChanged} from 'rxjs/operators'
 import {randomKey} from '@sanity/util/content'
 import {createEditor} from 'slate'
+import {debounce} from 'lodash'
 import {compileType} from '../utils/schema'
 import {getPortableTextFeatures} from '../utils/getPortableTextFeatures'
 import {PortableTextBlock, PortableTextFeatures, PortableTextChild} from '../types/portableText'
@@ -27,6 +28,8 @@ import {PortableTextEditorSelectionContext} from './hooks/usePortableTextEditorS
 import {PortableTextEditorValueContext} from './hooks/usePortableTextEditorValue'
 import {withPortableText} from './withPortableText'
 
+const THROTTLE_EDITOR_MS = 500
+
 export const defaultKeyGenerator = () => randomKey(12)
 
 const debug = debugWithName('component:PortableTextEditor')
@@ -44,6 +47,8 @@ export type PortableTextEditorProps = {
 type State = {
   invalidValueResolution: InvalidValueResolution
   selection: EditorSelection // This state is only used to force the selection context to update.
+  isPending: boolean
+  value: PortableTextBlock[] | undefined
 }
 
 // The PT editor's public API
@@ -157,13 +162,20 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   public type: PortableTextType
   public portableTextFeatures: PortableTextFeatures
   public change$: EditorChanges = new Subject()
-  public isThrottling = false
   public editable?: EditableAPI
   public keyGenerator: () => string
   public maxBlocks: number | undefined
   public readOnly: boolean
   public incomingPatches$?: PatchObservable
   public slateInstance: PortableTextSlateEditor
+
+  static getDerivedStateFromProps(props: PortableTextEditorProps, state: State) {
+    if (state.isPending === false && state.value !== props.value) {
+      debug('Setting state value')
+      return {value: props.value}
+    }
+    return null
+  }
 
   constructor(props: PortableTextEditorProps) {
     super(props)
@@ -184,7 +196,12 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     this.keyGenerator = props.keyGenerator || defaultKeyGenerator
 
     // Validate the Portable Text value
-    let state: State = {invalidValueResolution: null, selection: null}
+    let state: State = {
+      invalidValueResolution: null,
+      selection: null,
+      isPending: false,
+      value: this.props.value,
+    }
     const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
     if (props.value && !validation.valid) {
       this.change$.next({type: 'loading', isLoading: false})
@@ -233,7 +250,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
           resolution: validation.resolution,
           value: this.props.value,
         })
-        // eslint-disable-next-line react/no-did-update-set-state
         this.setState({invalidValueResolution: validation.resolution})
       }
     }
@@ -249,27 +265,20 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     if (finalPatches.length > 0) {
       onChange({type: 'mutation', patches: finalPatches})
       this.pendingPatches = []
+      this.setState({isPending: false})
       debug('Flushing', finalPatches)
     }
   }
+  private flushDebounced = debounce(this.flush, THROTTLE_EDITOR_MS)
 
   private onEditorChange = (next: EditorChange): void => {
     const {onChange} = this.props
     switch (next.type) {
       case 'patch':
         this.pendingPatches.push(next.patch)
+        this.setState({isPending: true})
         onChange(next)
-        break
-      case 'throttle':
-        if (next.throttle !== this.isThrottling) {
-          onChange(next)
-        }
-        if (next.throttle) {
-          this.isThrottling = true
-        } else {
-          this.isThrottling = false
-          this.flush()
-        }
+        this.flushDebounced()
         break
       case 'selection':
         onChange(next)
@@ -277,7 +286,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         break
       case 'undo':
       case 'redo':
-        this.flush()
         onChange(next)
         break
       default:
@@ -291,7 +299,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     }
     return (
       <PortableTextEditorContext.Provider value={this}>
-        <PortableTextEditorValueContext.Provider value={this.props.value}>
+        <PortableTextEditorValueContext.Provider value={this.state.value}>
           <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
             {this.props.children}
           </PortableTextEditorSelectionContext.Provider>

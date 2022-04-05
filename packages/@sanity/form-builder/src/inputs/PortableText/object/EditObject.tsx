@@ -24,7 +24,6 @@ import {getModalOption} from './helpers'
 const PATCHES: WeakMap<PortableTextEditor, Patch[]> = new WeakMap()
 const IS_THROTTLING: WeakMap<PortableTextEditor, boolean> = new WeakMap()
 const THROTTLE_MS = 300
-
 export interface EditObjectProps {
   focusPath: Path
   markers: Marker[]
@@ -56,7 +55,10 @@ export const EditObject = (props: EditObjectProps) => {
   const editor = usePortableTextEditor()
   const ptFeatures = useMemo(() => PortableTextEditor.getPortableTextFeatures(editor), [editor])
   const [objectFromValue, type] = useMemo(
-    () => findObjectAndType(objectEditData, value, ptFeatures),
+    () =>
+      objectEditData
+        ? findObjectAndType(objectEditData, value, ptFeatures)
+        : [undefined, undefined],
     [objectEditData, ptFeatures, value]
   )
 
@@ -65,6 +67,7 @@ export const EditObject = (props: EditObjectProps) => {
   const formBuilderPath = objectEditData && objectEditData.formBuilderPath
   const kind = objectEditData && objectEditData.kind
   const modalOption = useMemo(() => getModalOption({type}), [type])
+  const isThrottling = IS_THROTTLING.get(editor)
 
   // Initialize weakmaps on mount, and send patches on unmount
   useEffect(() => {
@@ -78,8 +81,10 @@ export const EditObject = (props: EditObjectProps) => {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    setObject(objectFromValue)
-  }, [objectFromValue])
+    if (!isThrottling) {
+      setObject(objectFromValue)
+    }
+  }, [objectFromValue, isThrottling])
 
   const cancelThrottle = useMemo(
     () =>
@@ -118,6 +123,7 @@ export const EditObject = (props: EditObjectProps) => {
         PATCHES.set(editor, PATCHES.get(editor).concat(patchEvent.patches))
         sendPatches()
       }
+      // onChange(patchEvent, formBuilderPath)
     },
     [editor, object, sendPatches]
   )
@@ -173,10 +179,7 @@ function findObjectAndType(
   objectEditData: ObjectEditData,
   value: PortableTextBlock[] | undefined,
   ptFeatures: PortableTextFeatures
-): [PortableTextChild | undefined, Type | undefined] {
-  if (!objectEditData) {
-    return [undefined, undefined]
-  }
+): [PortableTextChild, Type] {
   const {editorPath, formBuilderPath, kind} = objectEditData
   let object: PortableTextChild
   let type: Type

@@ -102,7 +102,7 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   const ref = useForwardedRef(forwardedRef)
   const slateEditor = portableTextEditor.slateInstance
 
-  const {change$, isThrottling, keyGenerator, portableTextFeatures, readOnly} = portableTextEditor
+  const {change$, keyGenerator, portableTextFeatures, readOnly} = portableTextEditor
 
   const blockType = portableTextFeatures.types.block
 
@@ -170,10 +170,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
     slateEditor.isSelecting = isSelecting
   }, [isSelecting, slateEditor])
 
-  useEffect(() => {
-    slateEditor.isThrottling = isThrottling
-  }, [isThrottling, slateEditor])
-
   const renderElement = useCallback(
     (eProps) => (
       <Element
@@ -232,10 +228,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
 
   // Restore value from props
   useEffect(() => {
-    if (isThrottling) {
-      debug('Not setting value from props (throttling)')
-      return
-    }
     if (isSelecting) {
       debug('Not setting value from props (is selecting)')
       return
@@ -277,26 +269,24 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
         debug(`Updating children`)
         slateEditor.children = slateValueFromProps
         slateEditor.onChange()
-        VALUE_TO_SLATE_VALUE.set(val, slateEditor.children)
+        VALUE_TO_SLATE_VALUE.set(val, slateValueFromProps)
       }
       change$.next({type: 'value', value})
     }
   }, [
+    blockType.name,
     change$,
     isSelecting,
-    isThrottling,
     placeHolderBlock,
-    blockType.name,
+    portableTextEditor,
     slateEditor,
     value,
-    portableTextEditor,
   ])
 
   // Restore selection from props
   useEffect(() => {
     if (
       propsSelection &&
-      !isThrottling &&
       !isEqual(propsSelection, toPortableTextRange(slateEditor, slateEditor.selection))
     ) {
       debug(`Selection from props ${JSON.stringify(propsSelection)}`)
@@ -311,7 +301,7 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slateEditor, propsSelection]) // Note that 'isThrottling' and 'value' is deliberately left out here.
+  }, [slateEditor, propsSelection]) // Note that  'value' is deliberately left out here.
 
   // Set initial selection from props
   useEffect(() => {

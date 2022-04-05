@@ -43,8 +43,6 @@ const debug = debugWithName('plugin:withPatches')
 // eslint-disable-next-line new-cap
 const dmp = new DMP.diff_match_patch()
 
-const THROTTLE_EDITOR_MS = 500
-
 export type PatchFunctions = {
   insertNodePatch: (
     editor: PortableTextSlateEditor,
@@ -109,15 +107,13 @@ export function createWithPatches(
     PATCHING.set(editor, true)
     previousChildren = editor.children
 
-    // This will cancel the throttle when the user is not producing any patches for a short time
-    const cancelThrottleDebounced = debounce(() => {
-      change$.next({type: 'throttle', throttle: false})
-    }, THROTTLE_EDITOR_MS)
-
     // Inspect incoming patches and adjust editor selection accordingly.
     if (incomingPatches$) {
       incomingPatches$.subscribe((patch: Patch) => {
-        debug(`Handling incoming patch ${JSON.stringify(patch)}`)
+        if (patch.origin !== 'remote') {
+          return
+        }
+        debug(`Handling remote patch ${JSON.stringify(patch)}`)
         debug(`Selection is ${JSON.stringify(previousSelection)}`)
         debug(`Adjusting selection for patch ${patch.type}`)
         adjustSelection(editor, patch, previousChildren, previousSelection, portableTextFeatures)
@@ -195,17 +191,14 @@ export function createWithPatches(
         })
       }
 
+      // Emit all patches
       if (patches.length > 0) {
-        // Signal throttling
-        change$.next({type: 'throttle', throttle: true})
-        // Emit all patches
         patches.forEach((patch) => {
           change$.next({
             type: 'patch',
             patch,
           })
         })
-        cancelThrottleDebounced()
       }
       return editor
     }
