@@ -1,7 +1,7 @@
 import React from 'react'
 import {Path} from '@sanity/types'
-import {Subscription, Subject} from 'rxjs'
-import {distinctUntilChanged} from 'rxjs/operators'
+import {Subscription, Subject, defer, of, EMPTY, Observable, OperatorFunction} from 'rxjs'
+import {concatMap, delay, distinctUntilChanged, switchMap, tap} from 'rxjs/operators'
 import {randomKey} from '@sanity/util/content'
 import {createEditor} from 'slate'
 import {debounce} from 'lodash'
@@ -27,12 +27,25 @@ import {PortableTextEditorContext} from './hooks/usePortableTextEditor'
 import {PortableTextEditorSelectionContext} from './hooks/usePortableTextEditorSelection'
 import {PortableTextEditorValueContext} from './hooks/usePortableTextEditorValue'
 import {withPortableText} from './withPortableText'
+import {PortableTextEditorPendingStateContext} from './hooks/useHasPendingState'
 
 const THROTTLE_EDITOR_MS = 500
 
 export const defaultKeyGenerator = () => randomKey(12)
 
 const debug = debugWithName('component:PortableTextEditor')
+
+function bufferUntil<T>(emitWhen: (currentBuffer: T[]) => boolean): OperatorFunction<T, T[]> {
+  return (source: Observable<T>) =>
+    defer(() => {
+      let buffer: T[] = [] // custom buffer
+      return source.pipe(
+        tap((v) => buffer.push(v)), // add values to buffer
+        switchMap(() => (emitWhen(buffer) ? of(buffer) : EMPTY)), // emit the buffer when the condition is met
+        tap(() => (buffer = [])) // clear the buffer
+      )
+    })
+}
 
 export type PortableTextEditorProps = {
   keyGenerator?: () => string
@@ -47,8 +60,8 @@ export type PortableTextEditorProps = {
 type State = {
   invalidValueResolution: InvalidValueResolution
   selection: EditorSelection // This state is only used to force the selection context to update.
-  isPending: boolean
-  value: PortableTextBlock[] | undefined
+  hasPending: boolean
+  // value: PortableTextBlock[] | undefined
 }
 
 // The PT editor's public API
@@ -169,13 +182,13 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   public incomingPatches$?: PatchObservable
   public slateInstance: PortableTextSlateEditor
 
-  static getDerivedStateFromProps(props: PortableTextEditorProps, state: State) {
-    if (state.isPending === false && state.value !== props.value) {
-      debug('Setting state value')
-      return {value: props.value}
-    }
-    return null
-  }
+  // static getDerivedStateFromProps(props: PortableTextEditorProps, state: State) {
+  //   if (state.hasPending === false && state.value !== props.value) {
+  //     debug('Setting state value')
+  //     return {value: props.value}
+  //   }
+  //   return null
+  // }
 
   constructor(props: PortableTextEditorProps) {
     super(props)
@@ -199,8 +212,8 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     let state: State = {
       invalidValueResolution: null,
       selection: null,
-      isPending: false,
-      value: this.props.value,
+      hasPending: false,
+      // value: props.value,
     }
     const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
     if (props.value && !validation.valid) {
@@ -212,7 +225,12 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       })
       state = {...state, invalidValueResolution: validation.resolution}
     }
-    this.incomingPatches$ = props.incomingPatches$
+    if (props.incomingPatches$) {
+      this.incomingPatches$ = props.incomingPatches$.pipe(
+        bufferUntil(() => !this.state.hasPending),
+        concatMap((x) => x)
+      )
+    }
     this.maxBlocks =
       typeof props.maxBlocks === 'undefined'
         ? undefined
@@ -253,6 +271,10 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         this.setState({invalidValueResolution: validation.resolution})
       }
     }
+    // if (this.state.hasPending === false && this.state.value !== this.props.value) {
+    //   debug('Setting state value')
+    //   this.setState({value: this.props.value})
+    // }
   }
 
   public setEditable = (editable: EditableAPI) => {
@@ -265,7 +287,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     if (finalPatches.length > 0) {
       onChange({type: 'mutation', patches: finalPatches})
       this.pendingPatches = []
-      this.setState({isPending: false})
+      this.setState({hasPending: false})
       debug('Flushing', finalPatches)
     }
   }
@@ -276,7 +298,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     switch (next.type) {
       case 'patch':
         this.pendingPatches.push(next.patch)
-        this.setState({isPending: true})
+        this.setState({hasPending: true})
         onChange(next)
         this.flushDebounced()
         break
@@ -299,10 +321,12 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     }
     return (
       <PortableTextEditorContext.Provider value={this}>
-        <PortableTextEditorValueContext.Provider value={this.state.value}>
+        <PortableTextEditorValueContext.Provider value={this.props.value}>
+          {/* <PortableTextEditorPendingStateContext.Provider value={this.state.hasPending}> */}
           <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
             {this.props.children}
           </PortableTextEditorSelectionContext.Provider>
+          {/* </PortableTextEditorPendingStateContext.Provider> */}
         </PortableTextEditorValueContext.Provider>
       </PortableTextEditorContext.Provider>
     )

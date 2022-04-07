@@ -1,7 +1,7 @@
 /* eslint-disable max-statements */
 /* eslint-disable complexity */
 import * as DMP from 'diff-match-patch'
-import {debounce, isEqual} from 'lodash'
+import {isEqual} from 'lodash'
 import {Subject} from 'rxjs'
 import {
   Descendant,
@@ -106,7 +106,6 @@ export function createWithPatches(
   return function withPatches(editor: PortableTextSlateEditor) {
     PATCHING.set(editor, true)
     previousChildren = editor.children
-
     // Inspect incoming patches and adjust editor selection accordingly.
     if (incomingPatches$) {
       incomingPatches$.subscribe((patch: Patch) => {
@@ -510,6 +509,6 @@ function adjustSelection(
     debug('Selection is the same, not adjusting')
     return
   }
+  debug('Adjusting selection', newSelection)
   Transforms.select(editor, newSelection)
-  // editor.onChange()
 }
