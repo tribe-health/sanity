@@ -141,11 +141,7 @@ const PortableTextInputController = React.forwardRef(function PortableTextInputC
   // Handle incoming patches from withPatchSubscriber HOC
   const handleDocumentPatches = useCallback(
     ({patches}: {patches: PatchWithOrigin[]; snapshot: PortableTextBlock[] | undefined}): void => {
-      const patchSelection =
-        patches && patches.length > 0 && patches.filter((patch) => patch.origin !== 'local')
-      if (patchSelection) {
-        patchSelection.map((patch) => patches$.next(patch))
-      }
+      patches.map((patch) => patches$.next(patch))
     },
     [patches$]
   )
