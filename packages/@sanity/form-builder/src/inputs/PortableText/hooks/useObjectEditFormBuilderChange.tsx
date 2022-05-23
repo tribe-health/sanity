@@ -19,7 +19,7 @@ export function useObjectEditFormBuilderChange(
         .forEach((segment) => {
           prefixedEvent = prefixedEvent.prefixAll(segment)
         })
-      prefixedEvent.patches.map((patch) => patches$.next(patch))
+      prefixedEvent.patches.map((patch) => patches$.next({...patch, origin: 'internal'}))
       onChange(prefixedEvent)
     },
     [onChange, patches$]
