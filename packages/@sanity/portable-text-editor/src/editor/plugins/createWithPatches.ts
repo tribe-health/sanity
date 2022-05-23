@@ -509,6 +509,6 @@ function adjustSelection(
     debug('Selection is the same, not adjusting')
     return
   }
+  debug('Adjusting selection', newSelection)
   Transforms.select(editor, newSelection)
-  // editor.onChange()
 }
