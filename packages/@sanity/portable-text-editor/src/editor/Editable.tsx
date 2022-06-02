@@ -1,4 +1,4 @@
-import {Transforms} from 'slate'
+import {BaseRange, Transforms} from 'slate'
 import {debounce, isEqual} from 'lodash'
 import isHotkey from 'is-hotkey'
 import React, {useCallback, useMemo, useState, useEffect, forwardRef, useRef} from 'react'
@@ -73,6 +73,8 @@ export type PortableTextEditableProps = {
   selection?: EditorSelection
   spellCheck?: boolean
 }
+
+const EMPTY_DECORATORS: BaseRange[] = []
 
 export const PortableTextEditable = forwardRef(function PortableTextEditable(
   props: PortableTextEditableProps & Omit<React.HTMLProps<HTMLDivElement>, 'as' | 'onPaste'>,
@@ -488,7 +490,7 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   }, [portableTextEditor, scrollSelectionIntoView])
 
   const decorate = useCallback(() => {
-    if (isEmpty) {
+    if (isEmpty && slateEditor.children.length <= 1) {
       return [
         {
           anchor: {
@@ -503,8 +505,8 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
         },
       ]
     }
-    return []
-  }, [isEmpty])
+    return EMPTY_DECORATORS
+  }, [isEmpty, slateEditor.children])
 
   // The editor
   const slateEditable = useMemo(
