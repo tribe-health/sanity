@@ -1,7 +1,7 @@
 import pluralize from 'pluralize'
 import React from 'react'
 
-const ColorPreview = ({ color }: { color: string }) => {
+const ColorPreview = ({color}: {color: string}) => {
   return (
     <div
       style={{
@@ -9,7 +9,7 @@ const ColorPreview = ({ color }: { color: string }) => {
         borderRadius: 'inherit',
         display: 'flex',
         height: '100%',
-        width: '100%'
+        width: '100%',
       }}
     />
   )
@@ -27,7 +27,7 @@ export default {
       title: 'Title',
       type: 'string',
       description: 'Shopify product option name (case sensitive)',
-      validation: Rule => Rule.required()
+      validation: (Rule) => Rule.required(),
     },
     // Colors
     {
@@ -45,54 +45,54 @@ export default {
               title: 'Title',
               type: 'string',
               description: 'Shopify product option value (case sensitive)',
-              validation: Rule => Rule.required()
+              validation: (Rule) => Rule.required(),
             },
             {
               name: 'color',
               title: 'Color',
               type: 'color',
-              options: { disableAlpha: true },
-              validation: Rule => Rule.required()
-            }
+              options: {disableAlpha: true},
+              validation: (Rule) => Rule.required(),
+            },
           ],
           preview: {
             select: {
               color: 'color.hex',
-              title: 'title'
+              title: 'title',
             },
             prepare(selection) {
-              const { color, title } = selection
+              const {color, title} = selection
               return {
                 media: <ColorPreview color={color} />,
                 subtitle: color,
-                title
+                title,
               }
-            }
-          }
-        }
+            },
+          },
+        },
       ],
-      validation: Rule =>
-        Rule.custom(options => {
+      validation: (Rule) =>
+        Rule.custom((options) => {
           // Each size must have a unique title
-          const uniqueTitles = new Set(options.map(option => option.title))
+          const uniqueTitles = new Set(options.map((option) => option.title))
           if (options.length > uniqueTitles.size) {
             return 'Each product option must have a unique title'
           }
           return true
-        })
-    }
+        }),
+    },
   ],
   preview: {
     select: {
       colorCount: 'colors.length',
-      title: 'title'
+      title: 'title',
     },
     prepare(selection) {
-      const { colorCount, title } = selection
+      const {colorCount, title} = selection
       return {
         subtitle: colorCount ? pluralize('color', colorCount, true) : 'No colors',
-        title
+        title,
       }
-    }
-  }
+    },
+  },
 }

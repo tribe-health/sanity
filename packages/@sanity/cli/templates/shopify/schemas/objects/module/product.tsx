@@ -1,4 +1,4 @@
-import { TagIcon } from '@sanity/icons'
+import {TagIcon} from '@sanity/icons'
 import React from 'react'
 import ShopifyDocumentStatus from '../../../components/media/ShopifyDocumentStatus'
 
@@ -12,18 +12,18 @@ export default {
       name: 'productWithVariant',
       title: 'Product + Variant',
       type: 'productWithVariant',
-      validation: Rule => Rule.required()
-    }
+      validation: (Rule) => Rule.required(),
+    },
   ],
   preview: {
     select: {
       isDeleted: 'productWithVariant.product.store.isDeleted',
       previewImageUrl: 'productWithVariant.product.store.previewImageUrl',
       status: 'productWithVariant.product.store.status',
-      title: 'productWithVariant.product.store.title'
+      title: 'productWithVariant.product.store.title',
     },
     prepare(selection) {
-      const { isDeleted, previewImageUrl, status, title } = selection
+      const {isDeleted, previewImageUrl, status, title} = selection
       return {
         media: (
           <ShopifyDocumentStatus
@@ -34,8 +34,8 @@ export default {
           />
         ),
         subtitle: 'Product',
-        title
+        title,
       }
-    }
-  }
+    },
+  },
 }

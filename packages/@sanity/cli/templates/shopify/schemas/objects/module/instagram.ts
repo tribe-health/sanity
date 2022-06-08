@@ -1,4 +1,4 @@
-import { UserIcon } from '@sanity/icons'
+import {UserIcon} from '@sanity/icons'
 
 export default {
   name: 'module.instagram',
@@ -10,24 +10,24 @@ export default {
       name: 'url',
       title: 'URL',
       type: 'string',
-      validation: Rule =>
-        Rule.custom(url => {
+      validation: (Rule) =>
+        Rule.custom((url) => {
           const pattern = /(https?:\/\/(?:www\.)?instagram\.com\/p\/([^/?#&]+)).*/g
           const isValid = url.match(pattern)
           return isValid ? true : 'Not a valid Instagram post URL'
-        })
-    }
+        }),
+    },
   ],
   preview: {
     select: {
-      url: 'url'
+      url: 'url',
     },
     prepare(selection) {
-      const { url } = selection
+      const {url} = selection
       return {
         subtitle: 'Instagram',
-        title: url
+        title: url,
       }
-    }
-  }
+    },
+  },
 }

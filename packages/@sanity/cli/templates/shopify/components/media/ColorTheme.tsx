@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react'
+import React, {forwardRef} from 'react'
 
 type Props = {
   background?: string
@@ -6,7 +6,7 @@ type Props = {
 }
 
 const ColorThemePreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
-  const { background, text } = props
+  const {background, text} = props
 
   return (
     <div
@@ -19,10 +19,10 @@ const ColorThemePreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
         height: '100%',
         justifyContent: 'center',
         overflow: 'hidden',
-        width: '100%'
+        width: '100%',
       }}
     >
-      {text && <span style={{ color: text, fontSize: '1.5em', fontWeight: 600 }}>T</span>}
+      {text && <span style={{color: text, fontSize: '1.5em', fontWeight: 600}}>T</span>}
     </div>
   )
 })

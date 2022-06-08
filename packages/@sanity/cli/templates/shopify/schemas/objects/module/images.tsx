@@ -1,4 +1,4 @@
-import { ImageIcon } from '@sanity/icons'
+import {ImageIcon} from '@sanity/icons'
 import pluralize from 'pluralize'
 
 export default {
@@ -12,8 +12,8 @@ export default {
       name: 'modules',
       title: 'Images',
       type: 'array',
-      of: [{ type: 'module.image' }],
-      validation: Rule => Rule.required().max(2)
+      of: [{type: 'module.image'}],
+      validation: (Rule) => Rule.required().max(2),
     },
     // Full width
     {
@@ -22,7 +22,7 @@ export default {
       type: 'boolean',
       description: 'Display single image at full width (on larger breakpoints)',
       initialValue: false,
-      hidden: ({ parent }) => parent?.modules.length > 1
+      hidden: ({parent}) => parent?.modules.length > 1,
     },
     // Vertical alignment
     {
@@ -36,32 +36,32 @@ export default {
         list: [
           {
             title: 'Top',
-            value: 'top'
+            value: 'top',
           },
           {
             title: 'Center',
-            value: 'center'
+            value: 'center',
           },
           {
             title: 'Bottom',
-            value: 'bottom'
-          }
-        ]
+            value: 'bottom',
+          },
+        ],
       },
-      hidden: ({ parent }) => !parent?.modules || parent?.modules.length < 2,
-      validation: Rule => Rule.required()
-    }
+      hidden: ({parent}) => !parent?.modules || parent?.modules.length < 2,
+      validation: (Rule) => Rule.required(),
+    },
   ],
   preview: {
     select: {
-      imageCount: 'modules.length'
+      imageCount: 'modules.length',
     },
     prepare(selection) {
-      const { imageCount } = selection
+      const {imageCount} = selection
       return {
         subtitle: 'Images',
-        title: imageCount ? pluralize('image', imageCount, true) : 'No images'
+        title: imageCount ? pluralize('image', imageCount, true) : 'No images',
       }
-    }
-  }
+    },
+  },
 }

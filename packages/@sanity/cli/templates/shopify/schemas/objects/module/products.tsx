@@ -1,4 +1,4 @@
-import { TagIcon } from '@sanity/icons'
+import {TagIcon} from '@sanity/icons'
 import pluralize from 'pluralize'
 
 export default {
@@ -12,8 +12,8 @@ export default {
       name: 'modules',
       title: 'Products',
       type: 'array',
-      of: [{ type: 'module.product' }],
-      validation: Rule => Rule.required().max(2)
+      of: [{type: 'module.product'}],
+      validation: (Rule) => Rule.required().max(2),
     },
     // Layout
     {
@@ -27,27 +27,27 @@ export default {
         list: [
           {
             title: 'Cards (large)',
-            value: 'card'
+            value: 'card',
           },
           {
             title: 'Pills (small)',
-            value: 'pill'
-          }
-        ]
+            value: 'pill',
+          },
+        ],
       },
-      validation: Rule => Rule.required()
-    }
+      validation: (Rule) => Rule.required(),
+    },
   ],
   preview: {
     select: {
-      productCount: 'modules.length'
+      productCount: 'modules.length',
     },
     prepare(selection) {
-      const { productCount } = selection
+      const {productCount} = selection
       return {
         subtitle: 'Products',
-        title: productCount ? pluralize('product', productCount, true) : 'No products'
+        title: productCount ? pluralize('product', productCount, true) : 'No products',
       }
-    }
-  }
+    },
+  },
 }

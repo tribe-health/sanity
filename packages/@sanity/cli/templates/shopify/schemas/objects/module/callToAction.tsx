@@ -1,4 +1,4 @@
-import { BlockElementIcon, ImageIcon } from '@sanity/icons'
+import {BlockElementIcon, ImageIcon} from '@sanity/icons'
 
 export default {
   name: 'module.callToAction',
@@ -8,8 +8,8 @@ export default {
   fieldsets: [
     {
       name: 'copy',
-      title: 'Copy'
-    }
+      title: 'Copy',
+    },
   ],
   fields: [
     // Layout
@@ -24,23 +24,23 @@ export default {
         list: [
           {
             title: 'Content / Copy',
-            value: 'left'
+            value: 'left',
           },
           {
             title: 'Copy / Content',
-            value: 'right'
-          }
-        ]
+            value: 'right',
+          },
+        ],
       },
-      validation: Rule => Rule.required()
+      validation: (Rule) => Rule.required(),
     },
     // Title
     {
       name: 'title',
       title: 'Title',
       type: 'string',
-      validation: Rule => Rule.required(),
-      fieldset: 'copy'
+      validation: (Rule) => Rule.required(),
+      fieldset: 'copy',
     },
     // Body
     {
@@ -48,48 +48,48 @@ export default {
       title: 'Body',
       type: 'text',
       rows: 2,
-      fieldset: 'copy'
+      fieldset: 'copy',
     },
     // Link
     {
       name: 'links',
       title: 'Link',
       type: 'array',
-      of: [{ type: 'linkInternal' }, { type: 'linkExternal' }],
-      validation: Rule => Rule.max(1),
-      fieldset: 'copy'
+      of: [{type: 'linkInternal'}, {type: 'linkExternal'}],
+      validation: (Rule) => Rule.max(1),
+      fieldset: 'copy',
     },
     // Content
     {
       name: 'content',
       title: 'Content',
       type: 'array',
-      validation: Rule => Rule.required().max(1),
+      validation: (Rule) => Rule.required().max(1),
       of: [
         {
           icon: ImageIcon,
           type: 'image',
-          options: { hotspot: true }
+          options: {hotspot: true},
         },
         {
           name: 'productWithVariant',
           title: 'Product + Variant',
           type: 'productWithVariant',
-          validation: Rule => Rule.required()
-        }
-      ]
-    }
+          validation: (Rule) => Rule.required(),
+        },
+      ],
+    },
   ],
   preview: {
     select: {
-      title: 'title'
+      title: 'title',
     },
     prepare(selection) {
-      const { title } = selection
+      const {title} = selection
       return {
         subtitle: 'Call to action',
-        title
+        title,
       }
-    }
-  }
+    },
+  },
 }

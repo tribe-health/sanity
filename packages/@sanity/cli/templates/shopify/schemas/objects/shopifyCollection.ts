@@ -4,7 +4,7 @@ export default {
   type: 'object',
   options: {
     collapsed: false,
-    collapsible: true
+    collapsible: true,
   },
   readOnly: true,
   fieldsets: [
@@ -12,9 +12,9 @@ export default {
       name: 'status',
       title: 'Status',
       options: {
-        columns: 2
-      }
-    }
+        columns: 2,
+      },
+    },
   ],
   fields: [
     // Created at
@@ -22,61 +22,61 @@ export default {
       fieldset: 'status',
       name: 'createdAt',
       title: 'Created at',
-      type: 'string'
+      type: 'string',
     },
     // Updated at
     {
       fieldset: 'status',
       name: 'updatedAt',
       title: 'Last updated at',
-      type: 'string'
+      type: 'string',
     },
     // Deleted
     {
       fieldset: 'status',
       name: 'isDeleted',
       title: 'Deleted from Shopify?',
-      type: 'boolean'
+      type: 'boolean',
     },
     // Title
     {
       name: 'title',
       title: 'Title',
-      type: 'string'
+      type: 'string',
     },
     // Collection ID
     {
       name: 'id',
       title: 'ID',
       type: 'number',
-      description: 'Shopify Collection ID'
+      description: 'Shopify Collection ID',
     },
     // GID
     {
       name: 'gid',
       title: 'GID',
       type: 'string',
-      description: 'Shopify Collection GID'
+      description: 'Shopify Collection GID',
     },
     // Slug
     {
       name: 'slug',
       title: 'Slug',
       description: 'Shopify Collection handle',
-      type: 'slug'
+      type: 'slug',
     },
     // Description
     {
       name: 'descriptionHtml',
       title: 'HTML Description',
       type: 'text',
-      rows: 5
+      rows: 5,
     },
     // Image URL
     {
       name: 'imageUrl',
       title: 'Image URL',
-      type: 'string'
+      type: 'string',
     },
     // Rules
     {
@@ -88,22 +88,22 @@ export default {
         {
           name: 'rule',
           title: 'Rule',
-          type: 'collectionRule'
-        }
-      ]
+          type: 'collectionRule',
+        },
+      ],
     },
     // Disjunctive rules
     {
       name: 'disjunctive',
       title: 'Disjunctive rules?',
       description: 'Require any condition if true, otherwise require all conditions',
-      type: 'boolean'
+      type: 'boolean',
     },
     // Sort order
     {
       name: 'sortOrder',
       title: 'Sort order',
-      type: 'string'
-    }
-  ]
+      type: 'string',
+    },
+  ],
 }

@@ -3,9 +3,9 @@ import defaultResolve, {
   CreateAction,
   DeleteAction,
   DuplicateAction,
-  UnpublishAction
+  UnpublishAction,
 } from 'part:@sanity/base/document-actions'
-import { LOCKED_DOCUMENT_IDS, LOCKED_DOCUMENT_TYPES } from '../constants'
+import {LOCKED_DOCUMENT_IDS, LOCKED_DOCUMENT_TYPES} from '../constants'
 import deleteCollection from '../documentActions/deleteCollection'
 import deleteProductAndVariants from '../documentActions/deleteProductAndVariants'
 import shopifyLink from '../documentActions/shopifyLink'
@@ -15,7 +15,7 @@ export default function resolveDocumentActions(props) {
     // Start with Sanity's default actions
     ...defaultResolve(props)
       // Filter out actions by document type
-      .filter(action => {
+      .filter((action) => {
         // Prevent creation & deletion on certain document types
         if (LOCKED_DOCUMENT_TYPES.includes(props.type)) {
           if ([DeleteAction, DuplicateAction, UnpublishAction].includes(action)) {
@@ -65,7 +65,7 @@ export default function resolveDocumentActions(props) {
         return true
       })
       // Override any built-in actions with our own
-      .map(action => {
+      .map((action) => {
         // Collections: replace default delete action
         if (props.type === 'collection' && action === DeleteAction) {
           return deleteCollection
@@ -78,6 +78,6 @@ export default function resolveDocumentActions(props) {
         return action
       }),
     // Add our own custom actions
-    shopifyLink
+    shopifyLink,
   ]
 }

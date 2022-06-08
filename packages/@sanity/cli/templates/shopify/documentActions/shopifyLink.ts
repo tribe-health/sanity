@@ -3,10 +3,10 @@
  *
  * Learn more: https://www.sanity.io/docs/document-actions
  */
-import { EarthGlobeIcon } from '@sanity/icons'
-import { collectionUrl, productUrl, productVariantUrl } from '../utils/shopifyUrls'
-import { getShopifyStoreId } from '../utils/getShopifyStoreId'
-import { useEffect, useState } from 'react'
+import {EarthGlobeIcon} from '@sanity/icons'
+import {collectionUrl, productUrl, productVariantUrl} from '../utils/shopifyUrls'
+import {getShopifyStoreId} from '../utils/getShopifyStoreId'
+import {useEffect, useState} from 'react'
 
 type Props = {
   published: Record<string, any> // Sanity Document
@@ -14,14 +14,14 @@ type Props = {
 }
 
 export default (props: Props) => {
-  const { published, type } = props
+  const {published, type} = props
 
   const [storeId, setStoreId] = useState()
 
   const isShopifyDocument = ['collection', 'product', 'productVariant'].includes(type)
 
   useEffect(() => {
-    getShopifyStoreId().then(id => {
+    getShopifyStoreId().then((id) => {
       setStoreId(id)
     })
   }, [])
@@ -56,6 +56,6 @@ export default (props: Props) => {
     onHandle: () => {
       window.open(url)
     },
-    shortcut: 'Ctrl+Alt+E'
+    shortcut: 'Ctrl+Alt+E',
   }
 }

@@ -3,11 +3,11 @@
  *
  * Learn more: https://www.sanity.io/docs/document-actions
  */
-import { useRouter } from '@sanity/base/router'
-import { TrashIcon } from '@sanity/icons'
-import { Stack, Text, useToast } from '@sanity/ui'
+import {useRouter} from '@sanity/base/router'
+import {TrashIcon} from '@sanity/icons'
+import {Stack, Text, useToast} from '@sanity/ui'
 import sanityClient from 'part:@sanity/base/client'
-import React, { useState } from 'react'
+import React, {useState} from 'react'
 
 type Props = {
   draft?: Record<string, any> // Sanity Document
@@ -17,7 +17,7 @@ type Props = {
 }
 
 const deleteCollection = (props: Props) => {
-  const { draft, onComplete, published } = props
+  const {draft, onComplete, published} = props
 
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -53,19 +53,19 @@ const deleteCollection = (props: Props) => {
         } catch (err) {
           toast.push({
             status: 'error',
-            title: err?.message
+            title: err?.message,
           })
         } finally {
           // Signal that the action is complete
           onComplete()
         }
       },
-      type: 'confirm'
+      type: 'confirm',
     },
     icon: TrashIcon,
     label: 'Delete',
     onHandle: () => setDialogOpen(true),
-    shortcut: 'Ctrl+Alt+D'
+    shortcut: 'Ctrl+Alt+D',
   }
 }
 

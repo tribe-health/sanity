@@ -1,5 +1,5 @@
-import { CloseIcon, ImageIcon, LinkRemovedIcon } from '@sanity/icons'
-import React, { forwardRef, useState } from 'react'
+import {CloseIcon, ImageIcon, LinkRemovedIcon} from '@sanity/icons'
+import React, {forwardRef, useState} from 'react'
 
 type Props = {
   isActive?: boolean
@@ -9,7 +9,7 @@ type Props = {
 }
 
 const ShopifyDocumentStatus = forwardRef<HTMLDivElement, Props>((props, ref) => {
-  const { isActive, isDeleted, type, url } = props
+  const {isActive, isDeleted, type, url} = props
 
   const [imageVisible, setImageVisible] = useState(true)
 
@@ -26,7 +26,7 @@ const ShopifyDocumentStatus = forwardRef<HTMLDivElement, Props>((props, ref) => 
         height: '100%',
         justifyContent: 'center',
         overflow: 'hidden',
-        width: '100%'
+        width: '100%',
       }}
     >
       {imageVisible && url ? (
@@ -39,11 +39,11 @@ const ShopifyDocumentStatus = forwardRef<HTMLDivElement, Props>((props, ref) => 
             objectFit: 'contain',
             position: 'absolute',
             top: 0,
-            width: '100%'
+            width: '100%',
           }}
         />
       ) : (
-        <ImageIcon style={{ position: 'absolute' }} />
+        <ImageIcon style={{position: 'absolute'}} />
       )}
 
       {/* Item has been deleted */}
@@ -54,7 +54,7 @@ const ShopifyDocumentStatus = forwardRef<HTMLDivElement, Props>((props, ref) => 
             color: 'rgba(255, 255, 255, 0.85)',
             height: '100%',
             position: 'relative',
-            width: '100%'
+            width: '100%',
           }}
         />
       ) : (
@@ -67,7 +67,7 @@ const ShopifyDocumentStatus = forwardRef<HTMLDivElement, Props>((props, ref) => 
                 color: 'rgba(255, 255, 255, 0.85)',
                 height: '100%',
                 position: 'relative',
-                width: '100%'
+                width: '100%',
               }}
             />
           )}

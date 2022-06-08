@@ -1,24 +1,24 @@
-import { SanityDocument } from '@sanity/client'
-import { WarningOutlineIcon } from '@sanity/icons'
-import { Box, Card, Flex, Stack, Text } from '@sanity/ui'
-import { withDocument } from 'part:@sanity/form-builder'
-import React, { forwardRef, useEffect, useState } from 'react'
-import { getShopifyStoreId } from '../../utils/getShopifyStoreId'
-import { collectionUrl } from '../../utils/shopifyUrls'
+import {SanityDocument} from '@sanity/client'
+import {WarningOutlineIcon} from '@sanity/icons'
+import {Box, Card, Flex, Stack, Text} from '@sanity/ui'
+import {withDocument} from 'part:@sanity/form-builder'
+import React, {forwardRef, useEffect, useState} from 'react'
+import {getShopifyStoreId} from '../../utils/getShopifyStoreId'
+import {collectionUrl} from '../../utils/shopifyUrls'
 
 type Props = {
   document: SanityDocument
 }
 
 const CollectionHiddenInput = forwardRef<HTMLDivElement, Props>((props, ref) => {
-  const { document } = props
+  const {document} = props
 
   const [shopifyCollectionUrl, setShopifyCollectionUrl] = useState<string>()
 
   const isDeleted = document?.store?.isDeleted
 
   useEffect(() => {
-    getShopifyStoreId().then(storeId => {
+    getShopifyStoreId().then((storeId) => {
       if (storeId) {
         setShopifyCollectionUrl(collectionUrl(storeId, document?.store?.id))
       }

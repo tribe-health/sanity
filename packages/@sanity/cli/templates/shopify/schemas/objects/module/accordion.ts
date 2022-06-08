@@ -1,4 +1,4 @@
-import { StackCompactIcon } from '@sanity/icons'
+import {StackCompactIcon} from '@sanity/icons'
 import pluralize from 'pluralize'
 import blocksToText from '../../../utils/blocksToText'
 
@@ -24,7 +24,7 @@ export default {
               name: 'title',
               title: 'Title',
               type: 'string',
-              validation: Rule => Rule.required()
+              validation: (Rule) => Rule.required(),
             },
             {
               name: 'body',
@@ -38,67 +38,67 @@ export default {
                       // Email
                       {
                         name: 'annotationLinkEmail',
-                        type: 'annotationLinkEmail'
+                        type: 'annotationLinkEmail',
                       },
                       // Internal link
                       {
                         name: 'annotationLinkInternal',
-                        type: 'annotationLinkInternal'
+                        type: 'annotationLinkInternal',
                       },
                       // URL
                       {
                         name: 'annotationLinkExternal',
-                        type: 'annotationLinkExternal'
-                      }
+                        type: 'annotationLinkExternal',
+                      },
                     ],
                     decorators: [
                       {
                         title: 'Italic',
-                        value: 'em'
+                        value: 'em',
                       },
                       {
                         title: 'Strong',
-                        value: 'strong'
-                      }
-                    ]
+                        value: 'strong',
+                      },
+                    ],
                   },
                   // Regular styles
                   styles: [],
                   // Paragraphs
-                  type: 'block'
-                }
+                  type: 'block',
+                },
               ],
-              validation: Rule => Rule.required()
-            }
+              validation: (Rule) => Rule.required(),
+            },
           ],
           preview: {
             select: {
               body: 'body',
-              title: 'title'
+              title: 'title',
             },
             prepare(selection) {
-              const { body, title } = selection
+              const {body, title} = selection
               return {
                 subtitle: body && blocksToText(body),
-                title
+                title,
               }
-            }
-          }
-        }
-      ]
-    }
+            },
+          },
+        },
+      ],
+    },
   ],
   preview: {
     select: {
       groupCount: 'groups.length',
-      url: 'url'
+      url: 'url',
     },
     prepare(selection) {
-      const { groupCount } = selection
+      const {groupCount} = selection
       return {
         subtitle: 'Accordion',
-        title: groupCount ? pluralize('group', groupCount, true) : 'No groups'
+        title: groupCount ? pluralize('group', groupCount, true) : 'No groups',
       }
-    }
-  }
+    },
+  },
 }

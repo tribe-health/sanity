@@ -1,4 +1,4 @@
-import { HomeIcon } from '@sanity/icons'
+import {HomeIcon} from '@sanity/icons'
 
 const TITLE = 'Home'
 
@@ -11,12 +11,12 @@ export default {
     {
       default: true,
       name: 'editorial',
-      title: 'Editorial'
+      title: 'Editorial',
     },
     {
       name: 'seo',
-      title: 'SEO'
-    }
+      title: 'SEO',
+    },
   ],
   fields: [
     // Hero
@@ -24,7 +24,7 @@ export default {
       name: 'hero',
       title: 'Hero',
       type: 'hero.home',
-      group: 'editorial'
+      group: 'editorial',
     },
     // Modules
     {
@@ -32,30 +32,30 @@ export default {
       title: 'Modules',
       type: 'array',
       of: [
-        { type: 'module.callout' },
-        { type: 'module.callToAction' },
-        { type: 'module.collection' },
-        { type: 'module.image' },
-        { type: 'module.instagram' },
-        { type: 'module.product' }
+        {type: 'module.callout'},
+        {type: 'module.callToAction'},
+        {type: 'module.collection'},
+        {type: 'module.image'},
+        {type: 'module.instagram'},
+        {type: 'module.product'},
       ],
-      group: 'editorial'
+      group: 'editorial',
     },
     // SEO
     {
       name: 'seo',
       title: 'SEO',
       type: 'seo.singleton',
-      group: 'seo'
-    }
+      group: 'seo',
+    },
   ],
   preview: {
     prepare() {
       return {
         // media: icon,
         subtitle: 'Index',
-        title: TITLE
+        title: TITLE,
       }
-    }
-  }
+    },
+  },
 }

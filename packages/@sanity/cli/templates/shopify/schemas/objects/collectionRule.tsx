@@ -1,4 +1,4 @@
-import { FilterIcon } from '@sanity/icons'
+import {FilterIcon} from '@sanity/icons'
 
 export default {
   title: 'Collection rule',
@@ -11,34 +11,34 @@ export default {
     {
       title: 'Column',
       name: 'column',
-      type: 'string'
+      type: 'string',
     },
     // Values
     {
       title: 'Relation',
       name: 'relation',
-      type: 'string'
+      type: 'string',
     },
     // Condition
     {
       title: 'Condition',
       name: 'condition',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   preview: {
     select: {
       condition: 'condition',
       name: 'column',
-      relation: 'relation'
+      relation: 'relation',
     },
     prepare(selection) {
-      const { condition, name, relation } = selection
+      const {condition, name, relation} = selection
 
       return {
         subtitle: `${relation} ${condition}`,
-        title: name
+        title: name,
       }
-    }
-  }
+    },
+  },
 }

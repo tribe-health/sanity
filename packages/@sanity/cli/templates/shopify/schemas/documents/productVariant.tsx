@@ -1,4 +1,4 @@
-import { CopyIcon } from '@sanity/icons'
+import {CopyIcon} from '@sanity/icons'
 import React from 'react'
 import ShopifyIcon from '../../components/icons/Shopify'
 import ProductVariantHiddenInput from '../../components/inputs/ProductVariantHidden'
@@ -15,8 +15,8 @@ export default {
     {
       name: 'shopifySync',
       title: 'Shopify sync',
-      icon: ShopifyIcon
-    }
+      icon: ShopifyIcon,
+    },
   ],
   fields: [
     // Product variant hidden status
@@ -24,18 +24,18 @@ export default {
       name: 'hidden',
       type: 'string',
       inputComponent: ProductVariantHiddenInput,
-      hidden: ({ parent }) => {
+      hidden: ({parent}) => {
         const isDeleted = parent?.store?.isDeleted
 
         return !isDeleted
-      }
+      },
     },
     // Title (proxy)
     {
       title: 'Title',
       name: 'titleProxy',
       type: 'proxyString',
-      options: { field: 'store.title' }
+      options: {field: 'store.title'},
     },
     // Shopify product variant
     {
@@ -43,8 +43,8 @@ export default {
       title: 'Shopify',
       description: 'Variant data from Shopify (read-only)',
       type: 'shopifyProductVariant',
-      group: 'shopifySync'
-    }
+      group: 'shopifySync',
+    },
   ],
   preview: {
     select: {
@@ -52,10 +52,10 @@ export default {
       previewImageUrl: 'store.previewImageUrl',
       sku: 'store.sku',
       status: 'store.status',
-      title: 'store.title'
+      title: 'store.title',
     },
     prepare(selection) {
-      const { isDeleted, previewImageUrl, sku, status, title } = selection
+      const {isDeleted, previewImageUrl, sku, status, title} = selection
 
       return {
         media: (
@@ -67,8 +67,8 @@ export default {
           />
         ),
         subtitle: sku,
-        title
+        title,
       }
-    }
-  }
+    },
+  },
 }

@@ -104,6 +104,6 @@ export default createSchema({
     seoStandard,
     shopifyCollection,
     shopifyProduct,
-    shopifyProductVariant
-  ])
+    shopifyProductVariant,
+  ]),
 })
