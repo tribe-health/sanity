@@ -1,11 +1,10 @@
-import {FormField} from '@sanity/base/components'
-import {LockIcon} from '@sanity/icons'
-import {Box, Text, TextInput, Tooltip} from '@sanity/ui'
-import {uuid} from '@sanity/uuid'
+import { FormField } from '@sanity/base/components'
+import { LockIcon } from '@sanity/icons'
+import { Box, Text, TextInput, Tooltip } from '@sanity/ui'
+import { uuid } from '@sanity/uuid'
 import get from 'lodash.get'
-import {withDocument} from 'part:@sanity/form-builder'
-import React, {forwardRef} from 'react'
-// import { SanityDocument } from '@sanity/client'
+import { withDocument } from 'part:@sanity/form-builder'
+import React, { forwardRef } from 'react'
 
 // TODO: type correctly
 type Props = any
@@ -20,7 +19,7 @@ const ProxyString = forwardRef<HTMLInputElement, Props>((props, ref) => {
     placeholder,
     presence,
     readOnly,
-    type,
+    type
   } = props
 
   const path = type?.options?.field
@@ -41,7 +40,7 @@ const ProxyString = forwardRef<HTMLInputElement, Props>((props, ref) => {
         content={
           <Box padding={2}>
             <Text muted size={1}>
-              This value is defined in (<code>{path}</code>)
+              This value is set in Shopify (<code>{path}</code>)
             </Text>
           </Box>
         }

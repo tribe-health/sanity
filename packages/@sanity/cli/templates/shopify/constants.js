@@ -14,11 +14,10 @@ export const LOCKED_DOCUMENT_TYPES = ['media.tag']
 
 // References to include in 'internal' links
 export const PAGE_REFERENCES = [
-  {type: 'article.editorial'},
-  {type: 'article.info'},
-  {type: 'collection'},
-  {type: 'home'},
-  {type: 'product'},
+  { type: 'collection' },
+  { type: 'home' },
+  { type: 'page' },
+  { type: 'product' }
 ]
 
 // API version to use when using the Sanity client within the studio

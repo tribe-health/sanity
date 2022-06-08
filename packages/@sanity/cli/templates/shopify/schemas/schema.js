@@ -10,9 +10,9 @@ import annotationLinkInternal from './annotations/linkInternal'
 import annotationProduct from './annotations/product'
 
 // Document types
-import articleEditorial from './documents/article/editorial'
-import articleInfo from './documents/article/info'
 import collection from './documents/collection'
+import colorTheme from './documents/colorTheme'
+import page from './documents/page'
 import product from './documents/product'
 import productVariant from './documents/productVariant'
 
@@ -24,12 +24,24 @@ import settings from './singletons/settings'
 import body from './blocks/body'
 
 // Object types
-import blockImage from './objects/blockImage'
-import blockInlineProduct from './objects/blockInlineProduct'
-import blockInlineProductMarginalia from './objects/blockInlineProductMarginalia'
-import blockProduct from './objects/blockProduct'
+import collectionRule from './objects/collectionRule'
+import customProductOptionColor from './objects/customProductOption/color'
+import customProductOptionSize from './objects/customProductOption/size'
 import linkExternal from './objects/linkExternal'
 import linkInternal from './objects/linkInternal'
+import heroCollection from './objects/hero/collection'
+import heroHome from './objects/hero/home'
+import heroPage from './objects/hero/page'
+import moduleAccordion from './objects/module/accordion'
+import moduleCallout from './objects/module/callout'
+import moduleCallToAction from './objects/module/callToAction'
+import moduleCollection from './objects/module/collection'
+import moduleGrid from './objects/module/grid'
+import moduleImage from './objects/module/image'
+import moduleImages from './objects/module/images'
+import moduleInstagram from './objects/module/instagram'
+import moduleProduct from './objects/module/product'
+import moduleProducts from './objects/module/products'
 import placeholderString from './objects/placeholderString'
 import productOption from './objects/productOption'
 import productWithVariant from './objects/productWithVariant'
@@ -37,6 +49,7 @@ import proxyString from './objects/proxyString'
 import seoProduct from './objects/seo/product'
 import seoSingleton from './objects/seo/singleton'
 import seoStandard from './objects/seo/standard'
+import shopifyCollection from './objects/shopifyCollection'
 import shopifyProduct from './objects/shopifyProduct'
 import shopifyProductVariant from './objects/shopifyProductVariant'
 
@@ -53,9 +66,8 @@ export default createSchema({
     annotationLinkInternal,
     annotationProduct,
     // Document types
-    articleEditorial,
-    articleInfo,
     collection,
+    page,
     product,
     productVariant,
     // Singleton document types
@@ -64,12 +76,25 @@ export default createSchema({
     // Block content
     body,
     // Objects
-    blockImage,
-    blockInlineProduct,
-    blockInlineProductMarginalia,
-    blockProduct,
+    collectionRule,
+    colorTheme,
+    customProductOptionColor,
+    customProductOptionSize,
+    heroCollection,
+    heroHome,
+    heroPage,
     linkExternal,
     linkInternal,
+    moduleAccordion,
+    moduleCallout,
+    moduleCallToAction,
+    moduleCollection,
+    moduleGrid,
+    moduleImage,
+    moduleImages,
+    moduleInstagram,
+    moduleProduct,
+    moduleProducts,
     placeholderString,
     productOption,
     productWithVariant,
@@ -77,7 +102,8 @@ export default createSchema({
     seoProduct,
     seoSingleton,
     seoStandard,
+    shopifyCollection,
     shopifyProduct,
-    shopifyProductVariant,
-  ]),
+    shopifyProductVariant
+  ])
 })

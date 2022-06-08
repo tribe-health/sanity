@@ -1,15 +1,15 @@
-import {CloseIcon, ImageIcon, LinkRemovedIcon} from '@sanity/icons'
-import React, {forwardRef, useState} from 'react'
+import { CloseIcon, ImageIcon, LinkRemovedIcon } from '@sanity/icons'
+import React, { forwardRef, useState } from 'react'
 
 type Props = {
-  isActive: boolean
+  isActive?: boolean
   isDeleted: boolean
-  type: 'product' | 'productVariant'
+  type: 'collection' | 'product' | 'productVariant'
   url: string
 }
 
-const ProductMediaPreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
-  const {isActive, isDeleted, type, url} = props
+const ShopifyDocumentStatus = forwardRef<HTMLDivElement, Props>((props, ref) => {
+  const { isActive, isDeleted, type, url } = props
 
   const [imageVisible, setImageVisible] = useState(true)
 
@@ -21,11 +21,12 @@ const ProductMediaPreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
       ref={ref}
       style={{
         alignItems: 'center',
+        borderRadius: 'inherit',
         display: 'flex',
-        height: '5em',
+        height: '100%',
         justifyContent: 'center',
-        position: 'relative',
-        width: '5em',
+        overflow: 'hidden',
+        width: '100%'
       }}
     >
       {imageVisible && url ? (
@@ -38,17 +39,11 @@ const ProductMediaPreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
             objectFit: 'contain',
             position: 'absolute',
             top: 0,
-            width: '100%',
+            width: '100%'
           }}
         />
       ) : (
-        <ImageIcon
-          style={{
-            height: '100%',
-            position: 'absolute',
-            width: '100%',
-          }}
-        />
+        <ImageIcon style={{ position: 'absolute' }} />
       )}
 
       {/* Item has been deleted */}
@@ -59,7 +54,7 @@ const ProductMediaPreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
             color: 'rgba(255, 255, 255, 0.85)',
             height: '100%',
             position: 'relative',
-            width: '100%',
+            width: '100%'
           }}
         />
       ) : (
@@ -72,7 +67,7 @@ const ProductMediaPreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
                 color: 'rgba(255, 255, 255, 0.85)',
                 height: '100%',
                 position: 'relative',
-                width: '100%',
+                width: '100%'
               }}
             />
           )}
@@ -82,4 +77,4 @@ const ProductMediaPreview = forwardRef<HTMLDivElement, Props>((props, ref) => {
   )
 })
 
-export default ProductMediaPreview
+export default ShopifyDocumentStatus

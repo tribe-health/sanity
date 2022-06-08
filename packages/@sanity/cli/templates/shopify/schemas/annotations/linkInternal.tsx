@@ -3,9 +3,9 @@
  *
  * Read more: https://www.sanity.io/docs/customization#f924645007e1
  */
-import {LinkIcon} from '@sanity/icons'
+import { LinkIcon } from '@sanity/icons'
 import React from 'react'
-import {PAGE_REFERENCES} from '../../constants'
+import { PAGE_REFERENCES } from '../../constants'
 
 export default {
   title: 'Internal Link',
@@ -13,12 +13,18 @@ export default {
   type: 'object',
   blockEditor: {
     icon: () => <LinkIcon />,
-    render: ({children}) => (
+    render: ({ children }) => (
       <span>
-        <LinkIcon style={{marginRight: '0.2em', verticalAlign: 'text-bottom'}} />
+        <LinkIcon
+          style={{
+            marginLeft: '0.05em',
+            marginRight: '0.1em',
+            width: '0.75em'
+          }}
+        />
         {children}
       </span>
-    ),
+    )
   },
   fields: [
     // Reference
@@ -26,8 +32,8 @@ export default {
       name: 'reference',
       type: 'reference',
       weak: true,
-      validation: (Rule) => Rule.required(),
-      to: PAGE_REFERENCES,
-    },
-  ],
+      validation: Rule => Rule.required(),
+      to: PAGE_REFERENCES
+    }
+  ]
 }

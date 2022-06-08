@@ -3,12 +3,12 @@
  *
  * Learn more: https://www.sanity.io/docs/document-actions
  */
-import {useRouter} from '@sanity/base/router'
-import {TrashIcon} from '@sanity/icons'
-import {Stack, Text, useToast} from '@sanity/ui'
+import { useRouter } from '@sanity/base/router'
+import { TrashIcon } from '@sanity/icons'
+import { Stack, Text, useToast } from '@sanity/ui'
 import sanityClient from 'part:@sanity/base/client'
-import React, {useState} from 'react'
-import {SANITY_API_VERSION} from '../constants'
+import React, { useState } from 'react'
+import { SANITY_API_VERSION } from '../constants'
 
 type Props = {
   draft?: Record<string, any> // Sanity Document
@@ -17,8 +17,8 @@ type Props = {
   type: string
 }
 
-const DeleteProductAndVariants = (props: Props) => {
-  const {draft, onComplete, published} = props
+const deleteProductAndVariants = (props: Props) => {
+  const { draft, onComplete, published } = props
 
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -28,12 +28,11 @@ const DeleteProductAndVariants = (props: Props) => {
   return {
     color: 'danger',
     dialog: dialogOpen && {
+      color: 'danger',
       header: 'Delete current product and associated variants?',
       message: (
         <Stack space={4}>
-          <Text>
-            Delete the current product and all associated variants in your Sanity Content Lake.
-          </Text>
+          <Text>Delete the current product and all associated variants in your dataset.</Text>
           <Text weight="medium">No content on Shopify will be deleted.</Text>
         </Stack>
       ),
@@ -44,13 +43,15 @@ const DeleteProductAndVariants = (props: Props) => {
         // Find product variant documents with matching Shopify Product ID
         let productVariantIds: string[] = []
         if (productId) {
-          productVariantIds = await sanityClient.withConfig({apiVersion: SANITY_API_VERSION}).fetch(
-            `*[
+          productVariantIds = await sanityClient
+            .withConfig({ apiVersion: SANITY_API_VERSION })
+            .fetch(
+              `*[
                 _type == "productVariant"
                 && store.productId == $productId
               ]._id`,
-            {productId: productId}
-          )
+              { productId: productId }
+            )
         }
 
         // Delete current document (including draft)
@@ -63,7 +64,7 @@ const DeleteProductAndVariants = (props: Props) => {
         }
 
         // Delete all product variants with matching IDs
-        productVariantIds?.forEach((documentId) => {
+        productVariantIds?.forEach(documentId => {
           if (documentId) {
             transaction.delete(documentId)
             transaction.delete(`drafts.${documentId}`)
@@ -77,20 +78,20 @@ const DeleteProductAndVariants = (props: Props) => {
         } catch (err) {
           toast.push({
             status: 'error',
-            title: err?.message,
+            title: err?.message
           })
         } finally {
           // Signal that the action is complete
           onComplete()
         }
       },
-      type: 'confirm',
+      type: 'confirm'
     },
     icon: TrashIcon,
     label: 'Delete',
     onHandle: () => setDialogOpen(true),
-    shortcut: 'Ctrl+Alt+D',
+    shortcut: 'Ctrl+Alt+D'
   }
 }
 
-export default DeleteProductAndVariants
+export default deleteProductAndVariants
