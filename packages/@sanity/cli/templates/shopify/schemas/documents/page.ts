@@ -72,21 +72,21 @@ export default {
     {
       name: 'seo',
       title: 'SEO',
-      type: 'seo.standard',
+      type: 'seo.page',
       group: 'seo',
     },
   ],
   preview: {
     select: {
       active: 'active',
-      thumbnail: 'thumbnail',
+      seoImage: 'seo.image',
       title: 'title',
     },
     prepare(selection) {
-      const {thumbnail, title} = selection
+      const {seoImage, title} = selection
 
       return {
-        media: thumbnail,
+        media: seoImage,
         title,
       }
     },
