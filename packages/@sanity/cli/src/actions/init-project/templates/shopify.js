@@ -4,7 +4,7 @@ export const dependencies = {
   '@sanity/uuid': '^3.0.1',
   'lodash.get': '^4.4.2',
   pluralize: '^8.0.0',
-  'sanity-plugin-dashboard-widget-shopify': '^0.1.7',
+  'sanity-plugin-dashboard-widget-shopify': '^0.1.8',
   'sanity-plugin-media': '^1.4.10',
   slug: '^5.3.0',
 }

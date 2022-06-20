@@ -3,5 +3,9 @@
     "esModuleInterop": true,
     "jsx": "react"
   },
-  "include": ["./node_modules/@sanity/base/types/**/*.ts", "./**/*.ts", "./**/*.tsx"]
+  "include": [
+    "./node_modules/@sanity/base/types/**/*.ts",
+    "./**/*.ts",
+    "./**/*.tsx"
+  ]
 }
