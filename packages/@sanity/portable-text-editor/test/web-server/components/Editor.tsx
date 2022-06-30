@@ -53,7 +53,7 @@ export const Editor = ({
   value: PortableTextBlock[] | undefined
   onMutation: (mutatingPatches: Patch[]) => void
   editorId: string
-  incomingPatches$: Subject<Patch>
+  incomingPatches$: Subject<{patches: Patch[]}>
   selection: EditorSelection | null
 }) => {
   const [selectionValue, setSelectionValue] = useState<EditorSelection | null>(selection)
@@ -134,7 +134,6 @@ export const Editor = ({
         case 'ready':
         case 'unset':
         case 'value':
-        case 'throttle':
           break
         default:
           throw new Error(`Unhandled editor change ${JSON.stringify(change)}`)

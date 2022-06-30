@@ -37,6 +37,7 @@ import {EditorChange, PatchObservable, PortableTextSlateEditor} from '../../type
 import {debugWithName} from '../../utils/debug'
 import {PATCHING, isPatching} from '../../utils/withoutPatching'
 import {KEY_TO_VALUE_ELEMENT} from '../../utils/weakMaps'
+import {toPortableTextRange} from '../../utils/ranges'
 
 const debug = debugWithName('plugin:withPatches')
 
@@ -105,17 +106,43 @@ export function createWithPatches(
   let previousSelection: Range | null
   return function withPatches(editor: PortableTextSlateEditor) {
     PATCHING.set(editor, true)
+
     previousChildren = editor.children
+
     // Inspect incoming patches and adjust editor selection accordingly.
     if (incomingPatches$) {
-      incomingPatches$.subscribe((patch: Patch) => {
-        if (patch.origin !== 'remote') {
+      incomingPatches$.subscribe(({patches}) => {
+        const remotePatches = patches.filter((p) => p.origin === 'remote')
+        if (remotePatches.length === 0) {
           return
         }
-        debug(`Handling remote patch ${JSON.stringify(patch)}`)
-        debug(`Selection is ${JSON.stringify(previousSelection)}`)
-        debug(`Adjusting selection for patch ${patch.type}`)
-        adjustSelection(editor, patch, previousChildren, previousSelection, portableTextFeatures)
+        let hasAdjustments = false
+        remotePatches.forEach((patch) => {
+          debug(`Handling remote patch ${JSON.stringify(patch)}`)
+          const adjusted = adjustSelection(
+            editor,
+            patch,
+            previousChildren,
+            previousSelection,
+            portableTextFeatures
+          )
+          if (adjusted) {
+            editor.selection = adjusted
+            hasAdjustments = true
+          }
+        })
+        Editor.withoutNormalizing(editor, () => {
+          if (hasAdjustments && editor.selection) {
+            Transforms.select(editor, editor.selection)
+            const ptRange = toPortableTextRange(editor, editor.selection)
+            change$.next({
+              type: 'selection',
+              selection: ptRange,
+            })
+            debug('Adjusted selection:', JSON.stringify(ptRange, null, 2))
+            editor.onChange()
+          }
+        })
       })
     }
 
@@ -124,6 +151,7 @@ export function createWithPatches(
     editor.apply = (operation: Operation): void | Editor => {
       if (editor.readOnly) {
         editor.apply(operation)
+        return editor
       }
       let patches: Patch[] = []
 
@@ -132,7 +160,7 @@ export function createWithPatches(
       // debug('setting previous children', operation, editor.children)
       previousChildren = editor.children
 
-      const editorWasEmpty = isEqualToEmptyEditor(previousChildren as Node[], portableTextFeatures)
+      const editorWasEmpty = isEqualToEmptyEditor(previousChildren, portableTextFeatures)
 
       // Apply the operation
       apply(operation)
@@ -145,7 +173,19 @@ export function createWithPatches(
       }
 
       if (editorWasEmpty && operation.type !== 'set_selection') {
-        patches = [insert(previousChildren, 'before', [0])]
+        patches.push(
+          insert(
+            [
+              fromSlateValue(
+                previousChildren,
+                portableTextFeatures.types.block.name,
+                KEY_TO_VALUE_ELEMENT.get(editor)
+              )[0],
+            ],
+            'before',
+            [0]
+          )
+        )
       }
       switch (operation.type) {
         case 'insert_text':
@@ -177,12 +217,12 @@ export function createWithPatches(
         // Do nothing
       }
 
-      // Unset the value if editor has become empty
+      // Unset the value if this.operation made the editor empty
       if (
-        isEqualToEmptyEditor(editor.children, portableTextFeatures) &&
-        operation.type !== 'set_selection'
+        ['remove_text', 'remove_node'].includes(operation.type) &&
+        isEqualToEmptyEditor(editor.children, portableTextFeatures)
       ) {
-        patches.push(unset([]))
+        patches = [...patches, unset([])]
         change$.next({
           type: 'unset',
           previousValue: fromSlateValue(
@@ -198,7 +238,7 @@ export function createWithPatches(
         patches.forEach((patch) => {
           change$.next({
             type: 'patch',
-            patch,
+            patch: {...patch, origin: 'local'},
           })
         })
       }
@@ -214,11 +254,11 @@ function adjustSelection(
   previousChildren: (Node | Partial<Node>)[],
   previousSelection: Range | null,
   portableTextFeatures: PortableTextFeatures
-): void {
+): Range | undefined {
   const selection = editor.selection
   if (selection === null) {
     debug('No selection, not adjusting selection')
-    return
+    return undefined
   }
   let newSelection = selection
   // Text patches on same line
@@ -243,8 +283,8 @@ function adjustSelection(
         // This thing is exotic but actually works!
         const isBeforeUserSelection =
           parsed.start1 !== null &&
-          parsed.start1 + testString.length < selection.focus.offset &&
-          parsed.start1 + testString.length < selection.anchor.offset
+          parsed.start1 + testString.length <= selection.focus.offset &&
+          parsed.start1 + testString.length <= selection.anchor.offset
 
         const distance = parsed.length2 - parsed.length1
 
@@ -336,6 +376,9 @@ function adjustSelection(
 
     let [, blockIndex] = blkAndIdx
     const [block] = blkAndIdx
+    const [aboveBlock] = blockIndex
+      ? findBlockAndIndexFromPath(blockIndex - 1, editor.children)
+      : []
 
     // Deal with editing being done above the removed block
     if (
@@ -365,13 +408,12 @@ function adjustSelection(
       !Path.isBefore(selection.anchor.path, [blockIndex]) &&
       !Path.isBefore(selection.focus.path, [blockIndex])
     ) {
-      const isTextBlock = block._type === portableTextFeatures.types.block.name
-
+      const isTextBlock = aboveBlock && aboveBlock._type === portableTextFeatures.types.block.name
       const addToOffset =
         isTextBlock &&
         isEqual(selection.anchor.path[0], blockIndex) &&
         isEqual(selection.focus.path[0], blockIndex)
-          ? block.children
+          ? aboveBlock.children
               .map(
                 (child) =>
                   SlateText.isText(child) &&
@@ -379,9 +421,8 @@ function adjustSelection(
                   child.text
               )
               .filter(Boolean)
-              .join('').length + 1
+              .join('').length
           : 0
-
       if (selection.anchor.path[0] === blockIndex && selection.focus.path[0] === blockIndex) {
         blockIndex = Math.max(0, selection.focus.path[0] - 1)
       }
@@ -392,7 +433,7 @@ function adjustSelection(
           Math.max(0, newSelection.anchor.path[0] - 1),
           ...newSelection.anchor.path.slice(1),
         ]
-        newSelection.anchor.offset += addToOffset
+        newSelection.anchor.offset = addToOffset
       }
       if (Path.isAfter(selection.focus.path, [blockIndex])) {
         newSelection = {...(newSelection || selection)}
@@ -401,8 +442,11 @@ function adjustSelection(
           Math.max(0, newSelection.focus.path[0] - 1),
           ...newSelection.focus.path.slice(1),
         ]
-        newSelection.focus.offset += addToOffset
+        newSelection.focus.offset = addToOffset
       }
+    }
+    if (!isEqual(newSelection, selection)) {
+      debug('adjusting selection for unset block')
     }
   }
 
@@ -441,6 +485,9 @@ function adjustSelection(
       newSelection.anchor.offset = offset + previousSelection.anchor.offset
       newSelection.focus.offset = offset + previousSelection.focus.offset
     }
+    if (!isEqual(newSelection, selection)) {
+      debug('adjusting selection for unset block child')
+    }
   }
 
   // Insert patches on block level
@@ -462,6 +509,9 @@ function adjustSelection(
           ...newSelection.focus.path.slice(1),
         ]
       }
+    }
+    if (!isEqual(newSelection, selection)) {
+      debug('adjusting selection for insert block')
     }
   }
 
@@ -509,9 +559,9 @@ function adjustSelection(
     }
   }
   if (isEqual(newSelection, editor.selection)) {
-    debug('Selection is the same, not adjusting')
-    return
+    debug('Selection is the same, not adjusting', JSON.stringify(editor.selection))
+    return undefined
   }
-  debug('Adjusting selection', newSelection)
-  Transforms.select(editor, newSelection)
+  debug('Selection is different, adjusting', JSON.stringify(newSelection))
+  return newSelection
 }

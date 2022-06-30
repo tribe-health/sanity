@@ -122,7 +122,7 @@ export function fromSlateValue(
 }
 
 export function isEqualToEmptyEditor(
-  children: Node[] | undefined,
+  children: Descendant[] | PortableTextBlock[],
   portableTextFeatures: PortableTextFeatures
 ): boolean {
   return (

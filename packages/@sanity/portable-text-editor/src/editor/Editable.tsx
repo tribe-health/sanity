@@ -1,7 +1,6 @@
 import {BaseRange, Transforms} from 'slate'
 import {debounce, isEqual} from 'lodash'
-import isHotkey from 'is-hotkey'
-import React, {useCallback, useMemo, useState, useEffect, forwardRef, useRef} from 'react'
+import React, {useCallback, useMemo, useState, useEffect, forwardRef} from 'react'
 import {Editable as SlateEditable, Slate, ReactEditor, withReact} from '@sanity/slate-react'
 import {
   EditorSelection,
@@ -100,7 +99,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   const value = usePortableTextEditorValue()
   const ref = useForwardedRef(forwardedRef)
   const slateEditor = portableTextEditor.slateInstance
-  const valueRef = useRef<PortableTextBlock[] | undefined>(value)
 
   const {change$, keyGenerator, portableTextFeatures, readOnly} = portableTextEditor
 
@@ -125,8 +123,8 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   )
 
   const isEmpty = useMemo(
-    () => isEqualToEmptyEditor(slateEditor.children, portableTextFeatures),
-    [portableTextFeatures, slateEditor.children]
+    () => !value || isEqualToEmptyEditor(value, portableTextFeatures),
+    [portableTextFeatures, value]
   )
 
   const initialValue = useMemo(
@@ -172,12 +170,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
     [setIsComposing]
   )
 
-  // Track selection (action) state
-  const [isSelecting, setIsSelecting] = useState(false)
-  useEffect(() => {
-    slateEditor.isSelecting = isSelecting
-  }, [isSelecting, slateEditor])
-
   const renderElement = useCallback(
     (eProps) => (
       <Element
@@ -186,9 +178,10 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
         readOnly={readOnly}
         renderBlock={renderBlock}
         renderChild={renderChild}
+        spellCheck={spellCheck}
       />
     ),
-    [portableTextFeatures, readOnly, renderBlock, renderChild]
+    [portableTextFeatures, spellCheck, readOnly, renderBlock, renderChild]
   )
 
   const renderLeaf = useCallback(
@@ -240,14 +233,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       debug('Not setting value from props (is composing)')
       return
     }
-    if (isSelecting) {
-      debug('Not setting value from props (is selecting)')
-      return
-    }
-    if (valueRef.current === value) {
-      debug('Not setting value from props (same value)')
-      return
-    }
     const defaultValue = [placeHolderBlock]
     const slateValueFromProps = toSlateValue(
       getValueOrInitialValue(value, defaultValue),
@@ -273,19 +258,9 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
     } else {
       slateEditor.children = slateValueFromProps
     }
-    valueRef.current = value
-    debug(`Setting value from props`)
+    debug(`Setting value from props`, value)
     slateEditor.onChange()
-  }, [
-    isComposing,
-    isSelecting,
-    placeHolderBlock,
-    portableTextEditor,
-    setIsComposing,
-    slateEditor,
-    value,
-    valueRef,
-  ])
+  }, [isComposing, placeHolderBlock, portableTextEditor, setIsComposing, slateEditor, value])
 
   // Restore selection from props
   useEffect(() => {
@@ -383,74 +358,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
     [change$, onPaste, portableTextEditor, portableTextFeatures, slateEditor]
   )
 
-  const _isSelecting = useRef(false)
-  const onSelectStart = useCallback(
-    (event: KeyboardEvent | MouseEvent) => {
-      if (hasEditableTarget(slateEditor, event.target)) {
-        debug('Start selecting')
-        _isSelecting.current = true
-        setTimeout(() => setIsSelecting(true))
-      }
-    },
-    [slateEditor]
-  )
-  const onSelectEnd = useCallback(() => {
-    if (_isSelecting.current) {
-      debug('Done selecting')
-      setTimeout(() => setIsSelecting(false))
-    }
-  }, [_isSelecting])
-  const isSelectKeys = useCallback(
-    (event: KeyboardEvent) =>
-      isHotkey('shift+down', event) ||
-      isHotkey('shift+end', event) ||
-      isHotkey('shift+home', event) ||
-      isHotkey('shift+left', event) ||
-      isHotkey('shift+pageDown', event) ||
-      isHotkey('shift+pageUp', event) ||
-      isHotkey('shift+right', event) ||
-      isHotkey('shift+up', event),
-    []
-  )
-  const isSelectingWithKeys = useRef(false)
-  const onSelectStartWithKeys = useCallback(
-    (event: KeyboardEvent) => {
-      if (isSelectKeys(event)) {
-        isSelectingWithKeys.current = true
-        onSelectStart(event)
-      }
-    },
-    [isSelectKeys, onSelectStart]
-  )
-  const onSelectEndWithKeys = useCallback(
-    (event: KeyboardEvent) => {
-      if (isSelectingWithKeys.current && event.key === 'Shift') {
-        onSelectEnd()
-        isSelectingWithKeys.current = false
-      }
-    },
-    [onSelectEnd]
-  )
-
-  useEffect(() => {
-    if (ref.current && !readOnly) {
-      const currentRef = ref.current
-      currentRef.addEventListener('keydown', onSelectStartWithKeys, false)
-      currentRef.addEventListener('keyup', onSelectEndWithKeys, false)
-      currentRef.addEventListener('mousedown', onSelectStart, false)
-      window.addEventListener('mouseup', onSelectEnd, false) // Must be on window, or we might not catch it if the pointer is another place at the time.
-      currentRef.addEventListener('dragend', onSelectEnd, false)
-      return () => {
-        currentRef.removeEventListener('keydown', onSelectStartWithKeys, false)
-        currentRef.removeEventListener('keyup', onSelectEndWithKeys, false)
-        currentRef.removeEventListener('mousedown', onSelectStart, false)
-        window.removeEventListener('mouseup', onSelectEnd, false)
-        currentRef.removeEventListener('dragend', onSelectEnd, false)
-      }
-    }
-    return NOOP
-  }, [ref, onSelectEnd, onSelectEndWithKeys, onSelectStart, onSelectStartWithKeys, readOnly])
-
   const handleOnFocus = useCallback(() => {
     change$.next({type: 'focus'})
   }, [change$])
@@ -524,7 +431,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
           renderElement={renderElement}
           renderLeaf={renderLeaf}
           scrollSelectionIntoView={scrollSelectionIntoViewToSlate}
-          spellCheck={spellCheck}
         />
       </Slate>
     ),
@@ -542,7 +448,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       renderElement,
       renderLeaf,
       scrollSelectionIntoViewToSlate,
-      spellCheck,
     ]
   )
   if (!portableTextEditor) {

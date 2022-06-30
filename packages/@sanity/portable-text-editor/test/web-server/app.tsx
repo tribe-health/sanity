@@ -10,7 +10,7 @@ import {Value} from './components/Value'
 ReactDOM.render(<App />, document.getElementById('root'))
 
 export function App() {
-  const incomingPatches$ = useMemo(() => new Subject<Patch>(), [])
+  const incomingPatches$ = useMemo(() => new Subject<{patches: Patch[]}>(), [])
   const [value, setValue] = useState<PortableTextBlock[] | undefined>(undefined)
   const [revId, setRevId] = useState<string | undefined>(undefined)
   const [selection, setSelection] = useState<EditorSelection | null>(null)
@@ -44,7 +44,7 @@ export function App() {
               break
             case 'mutation':
               if (data.editorId !== editorId && data.testId === testId) {
-                data.patches.map((patch) => incomingPatches$.next(patch))
+                incomingPatches$.next({patches: data.patches})
               }
               break
             default:

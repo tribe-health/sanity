@@ -1,3 +1,4 @@
+/* eslint-disable tsdoc/syntax */
 import {ArraySchemaType, ObjectSchemaType, Path} from '@sanity/types'
 import {Subject, Observable} from 'rxjs'
 import {Node as SlateNode, Operation as SlateOperation} from 'slate'
@@ -78,7 +79,6 @@ export interface PortableTextSlateEditor extends ReactEditor {
   isTextBlock: (value: unknown) => value is TextBlock
   isTextSpan: (value: unknown) => value is TextSpan
   isListBlock: (value: unknown) => value is ListItem
-  isSelecting: boolean
   isThrottling: boolean
   readOnly: boolean
   maxBlocks: number | undefined
@@ -285,7 +285,9 @@ export type OnCopyFn = (
   event: React.ClipboardEvent<HTMLDivElement | HTMLSpanElement>
 ) => undefined | any
 
-export type PatchObservable = Observable<Patch>
+export type PatchObservable = Observable<{
+  patches: Patch[]
+}>
 
 export type RenderAttributes = {
   annotations?: PortableTextBlock[]

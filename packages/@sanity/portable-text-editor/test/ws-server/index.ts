@@ -25,7 +25,7 @@ const sub = messages.subscribe((next) => {
         ...p,
         origin: isOriginator ? 'local' : 'remote',
       }))
-      const newData = JSON.stringify({...data, patches})
+      const newData = JSON.stringify({...data, patches, snapshot: data.snapshot})
       socket.send(newData)
       return
     }
@@ -76,7 +76,8 @@ app.ws('/', (s, req) => {
       editorToSocket[data.editorId] = s
     }
     if (data.type === 'mutation' && testId) {
-      valueMap[testId] = applyAll(valueMap[testId], data.patches)
+      const prevValue = valueMap[testId]
+      valueMap[testId] = applyAll(prevValue, data.patches)
       messages.next(
         JSON.stringify({
           type: 'value',
@@ -85,7 +86,7 @@ app.ws('/', (s, req) => {
           revId: revisionMap[testId],
         })
       )
-      messages.next(JSON.stringify(data))
+      messages.next(JSON.stringify({...data, snapshot: valueMap[testId]}))
     }
   })
 })

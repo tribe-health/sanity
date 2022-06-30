@@ -46,8 +46,12 @@ export function createWithUndoRedo(incomingPatches$?: PatchObservable) {
   // Subscribe to incoming patches
   const incomingPatches: {patch: Patch; time: Date}[] = []
   if (incomingPatches$) {
-    incomingPatches$.subscribe((patch) => {
-      incomingPatches.push({patch: patch, time: new Date()})
+    incomingPatches$.subscribe(({patches}) => {
+      patches.forEach((patch) => {
+        if (patch.origin !== 'local') {
+          incomingPatches.push({patch: patch, time: new Date()})
+        }
+      })
     })
   }
 
@@ -382,7 +386,7 @@ const shouldClear = (op: Operation): boolean => {
   return true
 }
 
-function withoutSaving(editor: Editor, fn: () => void): void {
+export function withoutSaving(editor: Editor, fn: () => void): void {
   const prev = isSaving(editor)
   SAVING.set(editor, false)
   fn()

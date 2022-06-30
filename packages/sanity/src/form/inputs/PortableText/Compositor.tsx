@@ -49,7 +49,16 @@ interface InputProps extends ArrayOfObjectsInputProps<PortableTextBlock> {
 
 export type PortableTextEditorElement = HTMLDivElement | HTMLSpanElement | null
 
-const ACTIVATE_ON_FOCUS_MESSAGE = <Text weight="semibold">Click to activate</Text>
+function isTouchDevice() {
+  return (
+    (typeof window !== 'undefined' && 'ontouchstart' in window) ||
+    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0)
+  )
+}
+
+const activateVerb = isTouchDevice() ? 'Tap' : 'Click'
+
+const ACTIVATE_ON_FOCUS_MESSAGE = <Text weight="semibold">{activateVerb} to activate</Text>
 
 export function Compositor(props: InputProps) {
   const {

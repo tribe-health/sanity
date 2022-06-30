@@ -22,6 +22,10 @@ const REVISION_TIMEOUT_MS = 800 // 800 seems to be the limit for the doc patchin
 
 let testId: string
 
+function generateRandomInteger(min, max) {
+  return Math.floor(min + Math.random() * (max - min + 1))
+}
+
 export const delay = (time: number): Promise<void> => {
   return new Promise((resolve) => {
     setTimeout(resolve, time)
@@ -130,7 +134,6 @@ export default class CollaborationEnvironment extends NodeEnvironment {
             })
           }
           const getSelection = async (): Promise<EditorSelection | null> => {
-            await delay(SELECTION_TIMEOUT_MS) // Give the editor a chance to catch up first
             const selection = await selectionHandle.evaluate((node) =>
               node.innerText ? JSON.parse(node.innerText) : null
             )
@@ -159,6 +162,7 @@ export default class CollaborationEnvironment extends NodeEnvironment {
             testId,
             editorId,
             insertText: async (text: string) => {
+              await delay(generateRandomInteger(0, 100))
               await editableHandle.focus()
               await Promise.all([
                 waitForRevision(),
@@ -180,6 +184,7 @@ export default class CollaborationEnvironment extends NodeEnvironment {
               ])
             },
             pressKey: async (keyName: KeyInput, times?: number) => {
+              await delay(generateRandomInteger(0, 100))
               await editableHandle.focus()
               const pressKey = async () => {
                 await editableHandle.press(keyName)

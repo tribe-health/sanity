@@ -257,21 +257,21 @@ describe('selection adjustment', () => {
           _type: 'block',
           markDefs: [],
           style: 'normal',
-          children: [{_key: 'anotherKey5', _type: 'span', text: 'One', marks: []}],
+          children: [{_key: 'anotherKey5', _type: 'span', text: '1', marks: []}],
         },
         {
           _key: 'someKey6',
           _type: 'block',
           markDefs: [],
           style: 'normal',
-          children: [{_key: 'anotherKey6', _type: 'span', text: 'Two', marks: []}],
+          children: [{_key: 'anotherKey6', _type: 'span', text: '22', marks: []}],
         },
         {
           _key: 'someKey7',
           _type: 'block',
           markDefs: [],
           style: 'normal',
-          children: [{_key: 'anotherKey7', _type: 'span', text: 'Three', marks: []}],
+          children: [{_key: 'anotherKey7', _type: 'span', text: '333', marks: []}],
         },
       ])
       const expectedSelection = {
@@ -297,7 +297,7 @@ describe('selection adjustment', () => {
             {
               _key: 'anotherKey5',
               _type: 'span',
-              text: 'OneTwo',
+              text: '122',
               marks: [],
             },
           ],
@@ -311,15 +311,15 @@ describe('selection adjustment', () => {
             {
               _key: 'anotherKey7',
               _type: 'span',
-              text: 'Three',
+              text: '333',
               marks: [],
             },
           ],
         },
       ])
       expect(await editorA.getSelection()).toEqual({
-        anchor: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 6},
-        focus: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 6},
+        anchor: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 3},
+        focus: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 3},
       })
     })
   })

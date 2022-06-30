@@ -1,14 +1,14 @@
 import React from 'react'
 import {ArraySchemaType, Path} from '@sanity/types'
 import {Subscription, Subject, defer, of, EMPTY, Observable, OperatorFunction} from 'rxjs'
-import {concatMap, distinctUntilChanged, switchMap, tap} from 'rxjs/operators'
+import {concatMap, switchMap, tap} from 'rxjs/operators'
 import {randomKey} from '@sanity/util/content'
 import {createEditor} from 'slate'
 import {debounce} from 'lodash'
 import {compileType} from '../utils/schema'
 import {getPortableTextFeatures} from '../utils/getPortableTextFeatures'
 import {PortableTextBlock, PortableTextFeatures, PortableTextChild} from '../types/portableText'
-import {Type} from '../types/schema'
+import {RawType, Type} from '../types/schema'
 import type {Patch} from '../types/patch'
 import {
   EditorSelection,
@@ -20,7 +20,6 @@ import {
   PortableTextSlateEditor,
   EditableAPIDeleteOptions,
 } from '../types/editor'
-import {compactPatches} from '../utils/patches'
 import {validateValue} from '../utils/validateValue'
 import {debugWithName} from '../utils/debug'
 import {PortableTextEditorContext} from './hooks/usePortableTextEditor'
@@ -52,7 +51,7 @@ export type PortableTextEditorProps = {
   onChange: (change: EditorChange) => void
   incomingPatches$?: PatchObservable
   readOnly?: boolean
-  type: ArraySchemaType<PortableTextBlock>
+  type: ArraySchemaType<PortableTextBlock> | RawType
   value?: PortableTextBlock[]
 }
 
@@ -169,6 +168,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
   private changeSubscription: Subscription
   private pendingPatches: Patch[] = []
+  private valueRef: React.MutableRefObject<PortableTextBlock[] | undefined | null>
 
   public type: ArraySchemaType<PortableTextBlock>
   public portableTextFeatures: PortableTextFeatures
@@ -183,6 +183,9 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   constructor(props: PortableTextEditorProps) {
     super(props)
 
+    this.valueRef = React.createRef()
+    this.valueRef.current = props.value
+
     if (!props.type) {
       throw new Error('PortableTextEditor: missing "type" property')
     }
@@ -195,10 +198,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     // Get the block types feature set (lookup table)
     this.portableTextFeatures = getPortableTextFeatures(this.type)
 
-    // Subscribe to (distinct) changes
-    this.changeSubscription = this.change$
-      .pipe(distinctUntilChanged())
-      .subscribe(this.onEditorChange)
+    this.changeSubscription = this.change$.subscribe(this.onEditorChange)
 
     // Setup keyGenerator (either from props, or default)
     this.keyGenerator = props.keyGenerator || defaultKeyGenerator
@@ -220,10 +220,21 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       state = {...state, invalidValueResolution: validation.resolution}
     }
     if (props.incomingPatches$) {
-      // Buffer incoming patches until we have submitted ours
-      this.incomingPatches$ = props.incomingPatches$.pipe(
-        bufferUntil(() => !this.state.hasPendingPatches),
-        concatMap((x) => x)
+      const clearPending = tap(({patches}: {patches: Patch[]}) => {
+        if (patches.some((p) => p.origin === 'local')) {
+          this.setState({hasPendingPatches: false})
+        }
+      })
+      // Buffer incoming patches until all of our local patches are processed and returned
+      this.incomingPatches$ = props.incomingPatches$.pipe(clearPending).pipe(
+        bufferUntil(() => this.state.hasPendingPatches === false),
+        concatMap((incoming) => {
+          if (this.valueRef.current !== this.props.value) {
+            debug('Updating value reference from props')
+            this.valueRef.current = this.props.value
+          }
+          return incoming
+        })
       )
     }
     this.maxBlocks =
@@ -259,6 +270,16 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
           : parseInt(this.props.maxBlocks.toString(), 10) || undefined
       this.slateInstance.maxBlocks = this.maxBlocks
     }
+
+    // Update the value reference from props if no incoming patches are sent in through
+    // props, or otherwise if state.hasPendingPatches is false
+    if (
+      this.props.value !== prevProps.value &&
+      (!this.props.incomingPatches$ || !this.state.hasPendingPatches)
+    ) {
+      debug('Updating value reference from props')
+      this.valueRef.current = this.props.value
+    }
     // Validate again if value length has changed
     if (this.props.value && (prevProps.value || []).length !== this.props.value.length) {
       debug('Validating')
@@ -273,7 +294,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
           resolution: validation.resolution,
           value: this.props.value,
         })
-        // eslint-disable-next-line react/no-did-update-set-state
         this.setState({invalidValueResolution: validation.resolution})
       }
     }
@@ -281,38 +301,33 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
   public setEditable = (editable: EditableAPI) => {
     this.editable = {...this.editable, ...editable}
-    this.change$.next({type: 'value', value: this.props.value})
+    this.change$.next({type: 'value', value: this.valueRef.current || undefined})
     this.change$.next({type: 'ready'})
   }
   private flush = () => {
     const {onChange} = this.props
-    const finalPatches = compactPatches(this.pendingPatches)
+    const finalPatches = [...this.pendingPatches]
     if (finalPatches.length > 0) {
-      this.pendingPatches = []
-      this.setState({hasPendingPatches: false})
       debug('Flushing', finalPatches)
       onChange({type: 'mutation', patches: finalPatches})
+      this.pendingPatches = []
     }
   }
-  private flushDebounced = debounce(this.flush, FLUSH_PATCHES_DEBOUNCE_MS)
+  private flushDebounced = debounce(this.flush, FLUSH_PATCHES_DEBOUNCE_MS, {
+    leading: false,
+    trailing: true,
+  })
 
   private onEditorChange = (next: EditorChange): void => {
     const {onChange} = this.props
     switch (next.type) {
       case 'patch':
         this.pendingPatches.push(next.patch)
-        this.setState({hasPendingPatches: true})
-        this.flushDebounced()
+        this.setState({hasPendingPatches: true}, () => this.flushDebounced())
         break
       case 'selection':
         onChange(next)
         this.setState({selection: next.selection})
-        break
-      case 'undo':
-      case 'redo':
-        next.patches.map((p) => this.pendingPatches.push(p))
-        this.setState({hasPendingPatches: true})
-        this.flushDebounced()
         break
       default:
         onChange(next)
@@ -325,7 +340,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     }
     return (
       <PortableTextEditorContext.Provider value={this}>
-        <PortableTextEditorValueContext.Provider value={this.props.value}>
+        <PortableTextEditorValueContext.Provider value={this.valueRef.current || undefined}>
           <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
             {this.props.children}
           </PortableTextEditorSelectionContext.Provider>
