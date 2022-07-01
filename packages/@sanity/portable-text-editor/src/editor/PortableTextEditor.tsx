@@ -4,7 +4,7 @@ import {Subscription, Subject, defer, of, EMPTY, Observable, OperatorFunction} f
 import {concatMap, switchMap, tap} from 'rxjs/operators'
 import {randomKey} from '@sanity/util/content'
 import {createEditor} from 'slate'
-import {debounce} from 'lodash'
+import {debounce, isEqual} from 'lodash'
 import {compileType} from '../utils/schema'
 import {getPortableTextFeatures} from '../utils/getPortableTextFeatures'
 import {PortableTextBlock, PortableTextFeatures, PortableTextChild} from '../types/portableText'
@@ -58,7 +58,8 @@ export type PortableTextEditorProps = {
 type State = {
   invalidValueResolution: InvalidValueResolution | null
   selection: EditorSelection // This state is only used to force the selection context to update.
-  hasPendingPatches: boolean
+  adjustedSelection: EditorSelection
+  hasPendingLocalPatches: boolean
 }
 
 // The PT editor's public API
@@ -168,6 +169,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
   private changeSubscription: Subscription
   private pendingPatches: Patch[] = []
+  private returnedPatches: Patch[] = []
   private valueRef: React.MutableRefObject<PortableTextBlock[] | undefined | null>
 
   public type: ArraySchemaType<PortableTextBlock>
@@ -207,7 +209,8 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     let state: State = {
       invalidValueResolution: null,
       selection: null,
-      hasPendingPatches: false,
+      hasPendingLocalPatches: false,
+      adjustedSelection: null,
     }
     const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
     if (props.value && !validation.valid) {
@@ -220,19 +223,17 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       state = {...state, invalidValueResolution: validation.resolution}
     }
     if (props.incomingPatches$) {
-      const clearPending = tap(({patches}: {patches: Patch[]}) => {
-        if (patches.some((p) => p.origin === 'local')) {
-          this.setState({hasPendingPatches: false})
-        }
-      })
-      // Buffer incoming patches until all of our local patches are processed and returned
-      this.incomingPatches$ = props.incomingPatches$.pipe(clearPending).pipe(
-        bufferUntil(() => this.state.hasPendingPatches === false),
-        concatMap((incoming) => {
-          if (this.valueRef.current !== this.props.value) {
-            debug('Updating value reference from props')
-            this.valueRef.current = this.props.value
+      const processReturnedPatches = tap(
+        ({patches}: {patches: Patch[]; snapshot: PortableTextBlock[] | undefined}) => {
+          if (patches.some((p) => p.origin === 'local')) {
+            this.setState({hasPendingLocalPatches: false})
           }
+        }
+      )
+      // Buffer incoming patches until all of our local patches are returned
+      this.incomingPatches$ = props.incomingPatches$.pipe(processReturnedPatches).pipe(
+        bufferUntil(() => !this.state.hasPendingLocalPatches),
+        concatMap((incoming) => {
           return incoming
         })
       )
@@ -271,14 +272,21 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       this.slateInstance.maxBlocks = this.maxBlocks
     }
 
-    // Update the value reference from props if no incoming patches are sent in through
-    // props, or otherwise if state.hasPendingPatches is false
-    if (
-      this.props.value !== prevProps.value &&
-      (!this.props.incomingPatches$ || !this.state.hasPendingPatches)
-    ) {
-      debug('Updating value reference from props')
-      this.valueRef.current = this.props.value
+    if (!this.props.incomingPatches$ || !this.state.hasPendingLocalPatches) {
+      if (this.valueRef.current !== this.props.value) {
+        debug('Updating value reference from props')
+        this.valueRef.current = this.props.value
+      }
+      if (this.state.adjustedSelection) {
+        const adjusted = this.state.adjustedSelection
+        this.editable?.select(adjusted)
+        this.setState((prev) => ({adjustedSelection: null, selection: prev.adjustedSelection}))
+        // debug('Setting adjusted selection', JSON.stringify(adjusted))
+        // this.setState({adjustedSelection: null}, () => {
+        //   // Set the adjusted selection after the next re-render when we know we have the new value applied.
+        //   this.editable?.select(this.state.adjustedSelection)
+        // })
+      }
     }
     // Validate again if value length has changed
     if (this.props.value && (prevProps.value || []).length !== this.props.value.length) {
@@ -309,6 +317,9 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     const finalPatches = [...this.pendingPatches]
     if (finalPatches.length > 0) {
       debug('Flushing', finalPatches)
+      finalPatches.forEach((p) => {
+        this.returnedPatches.push(p)
+      })
       onChange({type: 'mutation', patches: finalPatches})
       this.pendingPatches = []
     }
@@ -323,11 +334,15 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     switch (next.type) {
       case 'patch':
         this.pendingPatches.push(next.patch)
-        this.setState({hasPendingPatches: true}, () => this.flushDebounced())
+        this.setState({hasPendingLocalPatches: true}, () => this.flushDebounced())
         break
       case 'selection':
         onChange(next)
-        this.setState({selection: next.selection})
+        if (next.adjusted) {
+          this.setState({adjustedSelection: next.selection})
+        } else {
+          this.setState({selection: next.selection})
+        }
         break
       default:
         onChange(next)

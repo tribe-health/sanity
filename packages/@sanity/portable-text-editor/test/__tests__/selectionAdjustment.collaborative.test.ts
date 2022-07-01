@@ -125,8 +125,8 @@ describe('selection adjustment', () => {
         },
       ])
       const expectedSelection = {
-        anchor: {path: [{_key: 'someKey3'}, 'children', {_key: 'anotherKey3'}], offset: 0},
-        focus: {path: [{_key: 'someKey3'}, 'children', {_key: 'anotherKey3'}], offset: 0},
+        anchor: {path: [{_key: 'someKey3'}, 'children', {_key: 'anotherKey3'}], offset: 5},
+        focus: {path: [{_key: 'someKey3'}, 'children', {_key: 'anotherKey3'}], offset: 5},
       }
       const [editorA, editorB] = await getEditors()
       await editorA.setSelection(expectedSelection)

@@ -39,7 +39,7 @@ export const withPortableText = <T extends Editor>(
   const withPortableTextMarkModel = createWithPortableTextMarkModel(portableTextFeatures)
   const withPortableTextBlockStyle = createWithPortableTextBlockStyle(portableTextFeatures, change$)
   const withUtils = createWithUtils(portableTextFeatures)
-  const withPortableTextSelections = createWithPortableTextSelections(change$)
+  const withPortableTextSelections = createWithPortableTextSelections(change$, portableTextFeatures)
 
   // Ordering is important here, selection dealing last, data manipulation in the middle and core model stuff first.
   return withSchemaTypes(

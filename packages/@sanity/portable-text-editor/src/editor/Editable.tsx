@@ -266,7 +266,10 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   useEffect(() => {
     if (
       propsSelection &&
-      !isEqual(propsSelection, toPortableTextRange(slateEditor, slateEditor.selection))
+      !isEqual(
+        propsSelection,
+        toPortableTextRange(value, slateEditor.selection, portableTextFeatures)
+      )
     ) {
       debug(`Selection from props ${JSON.stringify(propsSelection)}`)
       const normalizedSelection = normalizeSelection(propsSelection, value)

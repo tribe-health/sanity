@@ -2,7 +2,7 @@
 /* eslint-disable complexity */
 import * as DMP from 'diff-match-patch'
 import {isEqual} from 'lodash'
-import {Subject} from 'rxjs'
+import {Observable, Subject} from 'rxjs'
 import {
   Descendant,
   Editor,
@@ -23,7 +23,7 @@ import {
   Transforms,
 } from 'slate'
 import {isKeySegment} from '@sanity/types'
-import {insert, unset} from '../../patch/PatchEvent'
+import {insert, setIfMissing, unset} from '../../patch/PatchEvent'
 import type {Patch} from '../../types/patch'
 
 import {
@@ -33,11 +33,12 @@ import {
   findChildAndIndexFromPath,
 } from '../../utils/values'
 import {PortableTextBlock, PortableTextFeatures} from '../../types/portableText'
-import {EditorChange, PatchObservable, PortableTextSlateEditor} from '../../types/editor'
+import {EditorChange, PortableTextSlateEditor} from '../../types/editor'
 import {debugWithName} from '../../utils/debug'
 import {PATCHING, isPatching} from '../../utils/withoutPatching'
 import {KEY_TO_VALUE_ELEMENT} from '../../utils/weakMaps'
 import {toPortableTextRange} from '../../utils/ranges'
+import {withoutSaving} from './createWithUndoRedo'
 
 const debug = debugWithName('plugin:withPatches')
 
@@ -100,7 +101,7 @@ export function createWithPatches(
   }: PatchFunctions,
   change$: Subject<EditorChange>,
   portableTextFeatures: PortableTextFeatures,
-  incomingPatches$?: PatchObservable
+  incomingPatches$?: Observable<{patches: Patch[]; snapshot: PortableTextBlock[] | undefined}>
 ): (editor: PortableTextSlateEditor) => PortableTextSlateEditor {
   let previousChildren: Descendant[]
   let previousSelection: Range | null
@@ -111,12 +112,11 @@ export function createWithPatches(
 
     // Inspect incoming patches and adjust editor selection accordingly.
     if (incomingPatches$) {
-      incomingPatches$.subscribe(({patches}) => {
+      incomingPatches$.subscribe(({patches, snapshot}) => {
         const remotePatches = patches.filter((p) => p.origin === 'remote')
         if (remotePatches.length === 0) {
           return
         }
-        let hasAdjustments = false
         remotePatches.forEach((patch) => {
           debug(`Handling remote patch ${JSON.stringify(patch)}`)
           const adjusted = adjustSelection(
@@ -127,20 +127,19 @@ export function createWithPatches(
             portableTextFeatures
           )
           if (adjusted) {
-            editor.selection = adjusted
-            hasAdjustments = true
-          }
-        })
-        Editor.withoutNormalizing(editor, () => {
-          if (hasAdjustments && editor.selection) {
-            Transforms.select(editor, editor.selection)
-            const ptRange = toPortableTextRange(editor, editor.selection)
+            Editor.withoutNormalizing(editor, () => {
+              // eslint-disable-next-line max-nested-callbacks
+              withoutSaving(editor, () => {
+                Transforms.select(editor, adjusted)
+              })
+            })
+            const ptRange = toPortableTextRange(snapshot, adjusted, portableTextFeatures)
+            editor.onChange()
             change$.next({
               type: 'selection',
               selection: ptRange,
+              adjusted: true,
             })
-            debug('Adjusted selection:', JSON.stringify(ptRange, null, 2))
-            editor.onChange()
           }
         })
       })
@@ -165,6 +164,8 @@ export function createWithPatches(
       // Apply the operation
       apply(operation)
 
+      const editorIsEmpty = isEqualToEmptyEditor(editor.children, portableTextFeatures)
+
       previousSelection = editor.selection
 
       if (!isPatching(editor)) {
@@ -174,6 +175,7 @@ export function createWithPatches(
 
       if (editorWasEmpty && operation.type !== 'set_selection') {
         patches.push(
+          setIfMissing([], []),
           insert(
             [
               fromSlateValue(
@@ -218,10 +220,7 @@ export function createWithPatches(
       }
 
       // Unset the value if this.operation made the editor empty
-      if (
-        ['remove_text', 'remove_node'].includes(operation.type) &&
-        isEqualToEmptyEditor(editor.children, portableTextFeatures)
-      ) {
+      if (editorIsEmpty && ['remove_text', 'remove_node'].includes(operation.type)) {
         patches = [...patches, unset([])]
         change$.next({
           type: 'unset',
@@ -377,7 +376,7 @@ function adjustSelection(
     let [, blockIndex] = blkAndIdx
     const [block] = blkAndIdx
     const [aboveBlock] = blockIndex
-      ? findBlockAndIndexFromPath(blockIndex - 1, editor.children)
+      ? findBlockAndIndexFromPath(blockIndex - 1, previousChildren)
       : []
 
     // Deal with editing being done above the removed block
@@ -423,6 +422,9 @@ function adjustSelection(
               .filter(Boolean)
               .join('').length
           : 0
+      debug('aboveBlock', JSON.stringify(aboveBlock, null, 2))
+      debug('addToOffset', addToOffset)
+
       if (selection.anchor.path[0] === blockIndex && selection.focus.path[0] === blockIndex) {
         blockIndex = Math.max(0, selection.focus.path[0] - 1)
       }
@@ -433,7 +435,7 @@ function adjustSelection(
           Math.max(0, newSelection.anchor.path[0] - 1),
           ...newSelection.anchor.path.slice(1),
         ]
-        newSelection.anchor.offset = addToOffset
+        newSelection.anchor.offset = selection.anchor.offset + addToOffset
       }
       if (Path.isAfter(selection.focus.path, [blockIndex])) {
         newSelection = {...(newSelection || selection)}
@@ -442,7 +444,7 @@ function adjustSelection(
           Math.max(0, newSelection.focus.path[0] - 1),
           ...newSelection.focus.path.slice(1),
         ]
-        newSelection.focus.offset = addToOffset
+        newSelection.focus.offset = selection.focus.offset + addToOffset
       }
     }
     if (!isEqual(newSelection, selection)) {

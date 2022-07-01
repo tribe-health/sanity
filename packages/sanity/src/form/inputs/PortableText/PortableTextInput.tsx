@@ -119,6 +119,7 @@ export function PortableTextInput(props: PortableTextInputProps) {
   // Memoized patch stream
   const remotePatchSubject: Subject<{
     patches: EditorPatch[]
+    snapshot: PortableTextBlock[] | undefined
   }> = useMemo(() => new Subject(), [])
   const remotePatch$ = useMemo(() => remotePatchSubject.asObservable(), [remotePatchSubject])
 
@@ -137,8 +138,8 @@ export function PortableTextInput(props: PortableTextInputProps) {
 
   // Subscribe to incoming patches
   useEffect(() => {
-    return subscribe(({patches}): void => {
-      remotePatchSubject.next({patches})
+    return subscribe(({patches, snapshot}): void => {
+      remotePatchSubject.next({patches, snapshot})
     })
   }, [remotePatchSubject, subscribe])
 

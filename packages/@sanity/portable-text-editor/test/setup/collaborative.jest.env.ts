@@ -17,7 +17,7 @@ const WEB_SERVER_ROOT_URL = 'http://localhost:3000'
 const DEBUG = process.env.DEBUG || false
 
 // Wait this long for selections and a new doc revision to appear on the clients
-const SELECTION_TIMEOUT_MS = 100 // This will also be an indicator of the performance in the editor. Set it as low as possible without breaking the tests.
+const SELECTION_TIMEOUT_MS = 50 // This will also be an indicator of the performance in the editor. Set it as low as possible without breaking the tests.
 const REVISION_TIMEOUT_MS = 800 // 800 seems to be the limit for the doc patching to go full circle (increase this if tests starts to time out)
 
 let testId: string

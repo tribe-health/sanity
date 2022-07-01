@@ -187,6 +187,7 @@ export type ValueChange = {
 export type SelectionChange = {
   type: 'selection'
   selection: EditorSelection
+  adjusted?: boolean
 }
 
 export type FocusChange = {
@@ -287,6 +288,7 @@ export type OnCopyFn = (
 
 export type PatchObservable = Observable<{
   patches: Patch[]
+  snapshot: PortableTextBlock[] | undefined
 }>
 
 export type RenderAttributes = {
