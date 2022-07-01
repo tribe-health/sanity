@@ -79,7 +79,6 @@ export interface PortableTextSlateEditor extends ReactEditor {
   isTextBlock: (value: unknown) => value is TextBlock
   isTextSpan: (value: unknown) => value is TextSpan
   isListBlock: (value: unknown) => value is ListItem
-  isThrottling: boolean
   readOnly: boolean
   maxBlocks: number | undefined
 

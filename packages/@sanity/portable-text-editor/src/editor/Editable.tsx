@@ -260,7 +260,7 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
     }
     debug(`Setting value from props`, value)
     slateEditor.onChange()
-  }, [isComposing, placeHolderBlock, portableTextEditor, setIsComposing, slateEditor, value])
+  }, [isComposing, placeHolderBlock, portableTextEditor, slateEditor, value])
 
   // Restore selection from props
   useEffect(() => {

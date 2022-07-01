@@ -277,16 +277,14 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         debug('Updating value reference from props')
         this.valueRef.current = this.props.value
       }
-      if (this.state.adjustedSelection) {
-        const adjusted = this.state.adjustedSelection
-        this.editable?.select(adjusted)
-        this.setState((prev) => ({adjustedSelection: null, selection: prev.adjustedSelection}))
-        // debug('Setting adjusted selection', JSON.stringify(adjusted))
-        // this.setState({adjustedSelection: null}, () => {
-        //   // Set the adjusted selection after the next re-render when we know we have the new value applied.
-        //   this.editable?.select(this.state.adjustedSelection)
-        // })
-      }
+    }
+    if (this.state.adjustedSelection && !this.state.hasPendingLocalPatches) {
+      const adjusted = this.state.adjustedSelection
+      // Set the adjusted selection after the next re-render when we know we have the new value applied.
+      this.setState(
+        () => ({adjustedSelection: null, selection: {...adjusted, adjusted: false}}),
+        () => this.editable?.select(adjusted)
+      )
     }
     // Validate again if value length has changed
     if (this.props.value && (prevProps.value || []).length !== this.props.value.length) {
@@ -340,7 +338,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         onChange(next)
         if (next.adjusted) {
           this.setState({adjustedSelection: next.selection})
-        } else {
+        } else if (!this.state.adjustedSelection) {
           this.setState({selection: next.selection})
         }
         break

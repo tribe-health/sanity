@@ -31,6 +31,7 @@ import {
   isEqualToEmptyEditor,
   findBlockAndIndexFromPath,
   findChildAndIndexFromPath,
+  toSlateValue,
 } from '../../utils/values'
 import {PortableTextBlock, PortableTextFeatures} from '../../types/portableText'
 import {EditorChange, PortableTextSlateEditor} from '../../types/editor'
@@ -113,7 +114,7 @@ export function createWithPatches(
     // Inspect incoming patches and adjust editor selection accordingly.
     if (incomingPatches$) {
       incomingPatches$.subscribe(({patches, snapshot}) => {
-        const remotePatches = patches.filter((p) => p.origin === 'remote')
+        const remotePatches = patches.filter((p) => p.origin !== 'local')
         if (remotePatches.length === 0) {
           return
         }
@@ -133,8 +134,8 @@ export function createWithPatches(
                 Transforms.select(editor, adjusted)
               })
             })
-            const ptRange = toPortableTextRange(snapshot, adjusted, portableTextFeatures)
             editor.onChange()
+            const ptRange = toPortableTextRange(snapshot, adjusted, portableTextFeatures)
             change$.next({
               type: 'selection',
               selection: ptRange,
@@ -422,8 +423,6 @@ function adjustSelection(
               .filter(Boolean)
               .join('').length
           : 0
-      debug('aboveBlock', JSON.stringify(aboveBlock, null, 2))
-      debug('addToOffset', addToOffset)
 
       if (selection.anchor.path[0] === blockIndex && selection.focus.path[0] === blockIndex) {
         blockIndex = Math.max(0, selection.focus.path[0] - 1)
