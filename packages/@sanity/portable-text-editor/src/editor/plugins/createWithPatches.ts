@@ -36,10 +36,11 @@ import {
 import {PortableTextBlock, PortableTextFeatures} from '../../types/portableText'
 import {EditorChange, PortableTextSlateEditor} from '../../types/editor'
 import {debugWithName} from '../../utils/debug'
-import {PATCHING, isPatching} from '../../utils/withoutPatching'
+import {PATCHING, isPatching, withoutPatching} from '../../utils/withoutPatching'
 import {KEY_TO_VALUE_ELEMENT} from '../../utils/weakMaps'
 import {toPortableTextRange} from '../../utils/ranges'
 import {withoutSaving} from './createWithUndoRedo'
+import {createPatchToOperations} from '../../utils/patchToOperations'
 
 const debug = debugWithName('plugin:withPatches')
 
@@ -106,44 +107,57 @@ export function createWithPatches(
 ): (editor: PortableTextSlateEditor) => PortableTextSlateEditor {
   let previousChildren: Descendant[]
   let previousSelection: Range | null
+  const patchToOperations = createPatchToOperations(portableTextFeatures)
   return function withPatches(editor: PortableTextSlateEditor) {
     PATCHING.set(editor, true)
 
-    previousChildren = editor.children
+    previousChildren = [...editor.children]
 
     // Inspect incoming patches and adjust editor selection accordingly.
     if (incomingPatches$) {
-      incomingPatches$.subscribe(({patches, snapshot}) => {
+      incomingPatches$.subscribe(({patches, snapshot, previousSnapshot}) => {
+        debug('previousSnapshot', JSON.stringify(previousSnapshot))
         const remotePatches = patches.filter((p) => p.origin !== 'local')
         if (remotePatches.length === 0) {
           return
         }
-        remotePatches.forEach((patch) => {
-          debug(`Handling remote patch ${JSON.stringify(patch)}`)
-          const adjusted = adjustSelection(
-            editor,
-            patch,
-            previousChildren,
-            previousSelection,
-            portableTextFeatures
-          )
-          if (adjusted) {
-            Editor.withoutNormalizing(editor, () => {
+        Editor.withoutNormalizing(editor, () => {
+          remotePatches.forEach((patch) => {
+            debug(`Handling remote patch ${JSON.stringify(patch)}`)
+            // eslint-disable-next-line max-nested-callbacks
+            withoutPatching(editor, () => {
               // eslint-disable-next-line max-nested-callbacks
               withoutSaving(editor, () => {
-                Transforms.select(editor, adjusted)
+                patchToOperations(editor, patch, snapshot, previousSnapshot)
               })
             })
-            editor.onChange()
-            const ptRange = toPortableTextRange(snapshot, adjusted, portableTextFeatures)
-            change$.next({
-              type: 'selection',
-              selection: ptRange,
-              adjusted: true,
-            })
-          }
+            // const adjusted = adjustSelection(
+            //   editor,
+            //   patch,
+            //   toSlateValue(previousSnapshot, {portableTextFeatures}),
+            //   previousSelection,
+            //   portableTextFeatures
+            // )
+            // if (adjusted) {
+            //   Editor.withoutNormalizing(editor, () => {
+            //     // eslint-disable-next-line max-nested-callbacks
+            //     withoutSaving(editor, () => {
+            //       Transforms.select(editor, adjusted)
+            //       const ptRange = toPortableTextRange(snapshot, adjusted, portableTextFeatures)
+            //       change$.next({
+            //         type: 'selection',
+            //         selection: ptRange,
+            //         adjusted: true,
+            //       })
+            //     })
+            //   })
+            // }
+          })
         })
       })
+      if (editor.operations.length > 0) {
+        editor.onChange()
+      }
     }
 
     const {apply} = editor
@@ -370,80 +384,108 @@ function adjustSelection(
     }
   }
 
+  // // Unset patches on block level
+  // if (patch.type === 'unset' && patch.path.length === 1) {
+  //   const blkAndIdx = findBlockAndIndexFromPath(patch.path[0], previousChildren)
+
+  //   let [, blockIndex] = blkAndIdx
+  //   const [block] = blkAndIdx
+  //   const [aboveBlock] = blockIndex
+  //     ? findBlockAndIndexFromPath(blockIndex - 1, previousChildren)
+  //     : []
+
+  //   // Deal with editing being done above the removed block
+  //   if (
+  //     block &&
+  //     blockIndex !== undefined &&
+  //     previousSelection &&
+  //     !Path.isAfter(selection.anchor.path, [blockIndex]) &&
+  //     !Path.isAfter(selection.focus.path, [blockIndex])
+  //   ) {
+  //     newSelection = {...previousSelection}
+  //     newSelection.anchor = {...previousSelection.anchor}
+  //     newSelection.anchor.path = [
+  //       Math.max(0, previousSelection.anchor.path[0] - 1),
+  //       ...previousSelection.anchor.path.slice(1),
+  //     ]
+  //     newSelection.focus = {...previousSelection.focus}
+  //     newSelection.focus.path = [
+  //       Math.max(0, previousSelection.focus.path[0] - 1),
+  //       ...previousSelection.focus.path.slice(1),
+  //     ]
+  //   }
+
+  //   // Deal with editing being done below or on the removed block
+  //   if (
+  //     block &&
+  //     blockIndex !== undefined &&
+  //     !Path.isBefore(selection.anchor.path, [blockIndex]) &&
+  //     !Path.isBefore(selection.focus.path, [blockIndex])
+  //   ) {
+  //     debug('block', JSON.stringify(block, null, 2))
+  //     debug('blockIndex', blockIndex)
+  //     const isTextBlock = aboveBlock && aboveBlock._type === portableTextFeatures.types.block.name
+  //     const addToOffset =
+  //       isTextBlock &&
+  //       isEqual(selection.anchor.path[0], blockIndex) &&
+  //       isEqual(selection.focus.path[0], blockIndex)
+  //         ? aboveBlock.children
+  //             .map(
+  //               (child) =>
+  //                 SlateText.isText(child) &&
+  //                 child._type === portableTextFeatures.types.span.name &&
+  //                 child.text
+  //             )
+  //             .filter(Boolean)
+  //             .join('').length
+  //         : 0
+
+  //     if (selection.anchor.path[0] === blockIndex && selection.focus.path[0] === blockIndex) {
+  //       blockIndex = Math.max(0, selection.focus.path[0] - 1)
+  //     }
+  //     if (Path.isAfter(selection.anchor.path, [blockIndex])) {
+  //       newSelection = {...selection}
+  //       newSelection.anchor = {...newSelection.anchor}
+  //       newSelection.anchor.path = [
+  //         Math.max(0, newSelection.anchor.path[0] - 1),
+  //         ...newSelection.anchor.path.slice(1),
+  //       ]
+  //       newSelection.anchor.offset = selection.anchor.offset + addToOffset
+  //     }
+  //     if (Path.isAfter(selection.focus.path, [blockIndex])) {
+  //       newSelection = {...(newSelection || selection)}
+  //       newSelection.focus = {...newSelection.focus}
+  //       newSelection.focus.path = [
+  //         Math.max(0, newSelection.focus.path[0] - 1),
+  //         ...newSelection.focus.path.slice(1),
+  //       ]
+  //       newSelection.focus.offset = selection.focus.offset + addToOffset
+  //     }
+  //   }
+  //   if (!isEqual(newSelection, selection)) {
+  //     debug('adjusting selection for unset block')
+  //   }
+  // }
+
   // Unset patches on block level
   if (patch.type === 'unset' && patch.path.length === 1) {
-    const blkAndIdx = findBlockAndIndexFromPath(patch.path[0], previousChildren)
-
-    let [, blockIndex] = blkAndIdx
-    const [block] = blkAndIdx
-    const [aboveBlock] = blockIndex
-      ? findBlockAndIndexFromPath(blockIndex - 1, previousChildren)
-      : []
-
-    // Deal with editing being done above the removed block
-    if (
-      block &&
-      blockIndex !== undefined &&
-      previousSelection &&
-      !Path.isAfter(selection.anchor.path, [blockIndex]) &&
-      !Path.isAfter(selection.focus.path, [blockIndex])
-    ) {
-      newSelection = {...previousSelection}
-      newSelection.anchor = {...previousSelection.anchor}
-      newSelection.anchor.path = [
-        Math.max(0, previousSelection.anchor.path[0] - 1),
-        ...previousSelection.anchor.path.slice(1),
-      ]
-      newSelection.focus = {...previousSelection.focus}
-      newSelection.focus.path = [
-        Math.max(0, previousSelection.focus.path[0] - 1),
-        ...previousSelection.focus.path.slice(1),
-      ]
-    }
-
-    // Deal with editing being done below or on the removed block
-    if (
-      block &&
-      blockIndex !== undefined &&
-      !Path.isBefore(selection.anchor.path, [blockIndex]) &&
-      !Path.isBefore(selection.focus.path, [blockIndex])
-    ) {
-      const isTextBlock = aboveBlock && aboveBlock._type === portableTextFeatures.types.block.name
-      const addToOffset =
-        isTextBlock &&
-        isEqual(selection.anchor.path[0], blockIndex) &&
-        isEqual(selection.focus.path[0], blockIndex)
-          ? aboveBlock.children
-              .map(
-                (child) =>
-                  SlateText.isText(child) &&
-                  child._type === portableTextFeatures.types.span.name &&
-                  child.text
-              )
-              .filter(Boolean)
-              .join('').length
-          : 0
-
-      if (selection.anchor.path[0] === blockIndex && selection.focus.path[0] === blockIndex) {
-        blockIndex = Math.max(0, selection.focus.path[0] - 1)
-      }
+    const [block, blockIndex] = findBlockAndIndexFromPath(patch.path[0], previousChildren)
+    debug('block/index', JSON.stringify(block, null, 2), blockIndex)
+    if (block && typeof blockIndex !== 'undefined') {
+      newSelection = {...selection}
       if (Path.isAfter(selection.anchor.path, [blockIndex])) {
-        newSelection = {...selection}
-        newSelection.anchor = {...newSelection.anchor}
+        newSelection.anchor = {...selection.anchor}
         newSelection.anchor.path = [
-          Math.max(0, newSelection.anchor.path[0] - 1),
+          newSelection.anchor.path[0] - 1,
           ...newSelection.anchor.path.slice(1),
         ]
-        newSelection.anchor.offset = selection.anchor.offset + addToOffset
       }
       if (Path.isAfter(selection.focus.path, [blockIndex])) {
-        newSelection = {...(newSelection || selection)}
-        newSelection.focus = {...newSelection.focus}
+        newSelection.focus = {...selection.focus}
         newSelection.focus.path = [
-          Math.max(0, newSelection.focus.path[0] - 1),
+          newSelection.focus.path[0] - 1,
           ...newSelection.focus.path.slice(1),
         ]
-        newSelection.focus.offset = selection.focus.offset + addToOffset
       }
     }
     if (!isEqual(newSelection, selection)) {

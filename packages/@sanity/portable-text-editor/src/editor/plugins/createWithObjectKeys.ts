@@ -19,7 +19,7 @@ export function createWithObjectKeys(
       if (operation.type === 'insert_node') {
         // Must be given a new key or adding/removing marks while typing gets in trouble (duped keys)!
         if (!Editor.isEditor(operation.node)) {
-          operation.node = {...operation.node, _key: keyGenerator()}
+          operation.node = {...operation.node}
         }
       }
       apply(operation)

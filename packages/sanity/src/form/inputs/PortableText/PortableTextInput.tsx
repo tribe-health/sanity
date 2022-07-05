@@ -138,8 +138,8 @@ export function PortableTextInput(props: PortableTextInputProps) {
 
   // Subscribe to incoming patches
   useEffect(() => {
-    return subscribe(({patches, snapshot}): void => {
-      remotePatchSubject.next({patches, snapshot})
+    return subscribe(({patches, snapshot, previousSnapshot}): void => {
+      remotePatchSubject.next({patches, snapshot, previousSnapshot})
     })
   }, [remotePatchSubject, subscribe])
 

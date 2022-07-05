@@ -11,7 +11,7 @@ const {app} = expressWS(expressApp)
 const messages: Subject<string> = new Subject()
 
 const PORT = 3001
-const valueMap: Record<string, PortableTextBlock[] | undefined> = {}
+const valueMap: Record<string, {snapshot: PortableTextBlock[] | undefined}> = {}
 const revisionMap: Record<string, string> = {}
 const editorToSocket: Record<string, WebSocket> = {}
 const sockets: WebSocket[] = []
@@ -25,7 +25,12 @@ const sub = messages.subscribe((next) => {
         ...p,
         origin: isOriginator ? 'local' : 'remote',
       }))
-      const newData = JSON.stringify({...data, patches, snapshot: data.snapshot})
+      const newData = JSON.stringify({
+        ...data,
+        patches,
+        snapshot: data.snapshot,
+        previousSnapshot: data.previousSnapshot,
+      })
       socket.send(newData)
       return
     }
@@ -86,7 +91,13 @@ app.ws('/', (s, req) => {
           revId: revisionMap[testId],
         })
       )
-      messages.next(JSON.stringify({...data, snapshot: valueMap[testId]}))
+      messages.next(
+        JSON.stringify({
+          ...data,
+          snapshot: valueMap[testId],
+          previousSnapshot: prevValue || valueMap[testId],
+        })
+      )
     }
   })
 })

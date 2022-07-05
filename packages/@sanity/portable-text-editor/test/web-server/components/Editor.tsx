@@ -53,7 +53,11 @@ export const Editor = ({
   value: PortableTextBlock[] | undefined
   onMutation: (mutatingPatches: Patch[]) => void
   editorId: string
-  incomingPatches$: Subject<{patches: Patch[]}>
+  incomingPatches$: Subject<{
+    patches: Patch[]
+    snapshot: PortableTextBlock[] | undefined
+    previousSnapshot: PortableTextBlock[] | undefined
+  }>
   selection: EditorSelection | null
 }) => {
   const [selectionValue, setSelectionValue] = useState<EditorSelection | null>(selection)

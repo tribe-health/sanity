@@ -121,52 +121,70 @@ describe('selection adjustment', () => {
           _type: 'block',
           markDefs: [],
           style: 'normal',
-          children: [{_key: 'anotherKey3', _type: 'span', text: 'Three', marks: []}],
+          children: [{_key: 'anotherKey3', _type: 'span', text: '', marks: []}],
+        },
+        {
+          _key: 'someKey4',
+          _type: 'block',
+          markDefs: [],
+          style: 'normal',
+          children: [{_key: 'anotherKey4', _type: 'span', text: '', marks: []}],
+        },
+        {
+          _key: 'someKey5',
+          _type: 'block',
+          markDefs: [],
+          style: 'normal',
+          children: [{_key: 'anotherKey5', _type: 'span', text: 'Three', marks: []}],
         },
       ])
       const expectedSelection = {
-        anchor: {path: [{_key: 'someKey3'}, 'children', {_key: 'anotherKey3'}], offset: 5},
-        focus: {path: [{_key: 'someKey3'}, 'children', {_key: 'anotherKey3'}], offset: 5},
+        anchor: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 5},
+        focus: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 5},
       }
       const [editorA, editorB] = await getEditors()
       await editorA.setSelection(expectedSelection)
       expect(await editorA.getSelection()).toEqual(expectedSelection)
       await editorB.setSelection({
-        anchor: {path: [{_key: 'someKey2'}, 'children', {_key: 'anotherKey2'}], offset: 0},
-        focus: {path: [{_key: 'someKey2'}, 'children', {_key: 'anotherKey2'}], offset: 0},
+        anchor: {path: [{_key: 'someKey4'}, 'children', {_key: 'anotherKey4'}], offset: 0},
+        focus: {path: [{_key: 'someKey4'}, 'children', {_key: 'anotherKey4'}], offset: 0},
       })
       await editorB.pressKey('Backspace')
+      await editorB.pressKey('Backspace')
+      await editorB.pressKey('Backspace')
       const valueB = await editorB.getValue()
-      expect(valueB).toEqual([
-        {
-          _key: 'someKey2',
-          _type: 'block',
-          markDefs: [],
-          style: 'normal',
-          children: [
-            {
-              _key: 'anotherKey2',
-              _type: 'span',
-              text: '',
-              marks: [],
-            },
-          ],
-        },
-        {
-          _key: 'someKey3',
-          _type: 'block',
-          markDefs: [],
-          style: 'normal',
-          children: [
-            {
-              _key: 'anotherKey3',
-              _type: 'span',
-              text: 'Three',
-              marks: [],
-            },
-          ],
-        },
-      ])
+      expect(valueB).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "_key": "someKey4",
+            "_type": "block",
+            "children": Array [
+              Object {
+                "_key": "anotherKey4",
+                "_type": "span",
+                "marks": Array [],
+                "text": "",
+              },
+            ],
+            "markDefs": Array [],
+            "style": "normal",
+          },
+          Object {
+            "_key": "someKey5",
+            "_type": "block",
+            "children": Array [
+              Object {
+                "_key": "anotherKey5",
+                "_type": "span",
+                "marks": Array [],
+                "text": "Three",
+              },
+            ],
+            "markDefs": Array [],
+            "style": "normal",
+          },
+        ]
+      `)
       expect(await editorA.getSelection()).toEqual(expectedSelection)
     })
     it('will keep A on same line if B inserts a line above', async () => {
@@ -317,12 +335,15 @@ describe('selection adjustment', () => {
           ],
         },
       ])
+      const valueA = await editorA.getValue()
+      expect(valueA).toEqual(valueB)
       expect(await editorA.getSelection()).toEqual({
         anchor: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 3},
         focus: {path: [{_key: 'someKey5'}, 'children', {_key: 'anotherKey5'}], offset: 3},
       })
     })
   })
+
   it('will keep A on same word if B merges marks within that line', async () => {
     await setDocumentValue([
       {
