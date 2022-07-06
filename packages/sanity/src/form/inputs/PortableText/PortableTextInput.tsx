@@ -42,7 +42,6 @@ import {RenderBlockActionsCallback} from './types'
 import {PortableTextMarkersProvider} from './contexts/PortableTextMarkers'
 import {PortableTextMemberItemsProvider} from './contexts/PortableTextMembers'
 import {_isArrayOfObjectsFieldMember, _isBlockType} from './_helpers'
-import {editor} from '../../../datastores/grants/debug/exampleGrants'
 
 export type PTObjectMember = ArrayOfObjectsItemMember<
   ObjectFormNode<

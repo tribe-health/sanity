@@ -26,22 +26,24 @@ export const withPortableText = <T extends Editor>(
   const operationToPatches = createOperationToPatches(portableTextFeatures)
   const withObjectKeys = createWithObjectKeys(portableTextFeatures, keyGenerator)
   const withSchemaTypes = createWithSchemaTypes(portableTextFeatures)
-  const withPatches = createWithPatches(
+  const [withPatches, withPatchesCleanupFunction] = createWithPatches(
     operationToPatches,
     change$,
     portableTextFeatures,
     syncValue,
     incomingPatches$
   )
-
   const withMaxBlocks = createWithMaxBlocks()
   const withPortableTextLists = createWithPortableTextLists(portableTextFeatures)
-  const withUndoRedo = createWithUndoRedo(incomingPatches$)
+  const [withUndoRedo, withUndoRedoCleanupFunction] = createWithUndoRedo(incomingPatches$)
   const withPortableTextMarkModel = createWithPortableTextMarkModel(portableTextFeatures)
   const withPortableTextBlockStyle = createWithPortableTextBlockStyle(portableTextFeatures, change$)
-  const withUtils = createWithUtils(portableTextFeatures)
+  const withUtils = createWithUtils() // TODO: remove?
   const withPortableTextSelections = createWithPortableTextSelections(change$, portableTextFeatures)
-
+  e.destroy = () => {
+    withPatchesCleanupFunction()
+    withUndoRedoCleanupFunction()
+  }
   // Ordering is important here, selection dealing last, data manipulation in the middle and core model stuff first.
   return withSchemaTypes(
     withObjectKeys(

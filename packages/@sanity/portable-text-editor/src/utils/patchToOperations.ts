@@ -100,10 +100,18 @@ export function createPatchToOperations(
       const normalizedIdx = position === 'after' ? index + 1 : index
       debug(`Inserting blocks at path [${normalizedIdx}]`)
       debugState(editor, 'before')
-      if (isEqualToEmptyEditor(editor.children, portableTextFeatures)) {
-        Transforms.removeNodes(editor, {at: [normalizedIdx]})
+      const isEmpty = isEqualToEmptyEditor(editor.children, portableTextFeatures)
+      if (isEmpty) {
+        debug('Removing placeholder block')
+        Transforms.removeNodes(editor, {at: [0]})
       }
       Transforms.insertNodes(editor, blocksToInsert, {at: [normalizedIdx]})
+      if (isEmpty) {
+        Transforms.select(editor, {
+          focus: {path: [0, 0], offset: 0},
+          anchor: {path: [0, 0], offset: 0},
+        })
+      }
       debugState(editor, 'after')
       return true
     }
@@ -169,12 +177,14 @@ export function createPatchToOperations(
     debugState(editor, 'before')
     if (targetPath.length === 1) {
       debug('Setting block property')
-      const {children, ...rest} = value
+      const {children, ...nextRest} = value
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const {children: prevChildren, ...prevRest} = block || {children: undefined}
       editor.apply({
         type: 'set_node',
         path: targetPath,
-        properties: {},
-        newProperties: rest,
+        properties: {...prevRest},
+        newProperties: nextRest,
       })
       if (block && Element.isElement(block)) {
         block.children.forEach((c, cIndex) => {
@@ -210,10 +220,10 @@ export function createPatchToOperations(
         text: value.text,
       })
       const onSamePath = prevSel && isEqual(prevSel.focus.path, targetPath)
-      const onSameText =
-        editor.selection &&
-        editor.selection.focus.path[0] === blockIndex &&
-        patch.path[3] === 'text'
+      // const onSameText =
+      //   editor.selection &&
+      //   editor.selection.focus.path[0] === blockIndex &&
+      //   patch.path[3] === 'text'
       if (onSamePath) {
         debug('On same path, restoring previous selection')
         Transforms.select(editor, prevSel)
@@ -246,6 +256,10 @@ export function createPatchToOperations(
         Transforms.removeNodes(editor, {at: [i]})
       })
       Transforms.insertNodes(editor, [placeholderBlock], {at: [0]})
+      Transforms.select(editor, {
+        focus: {path: [0, 0], offset: 0},
+        anchor: {path: [0, 0], offset: 0},
+      })
       debugState(editor, 'after')
       return true
     }

@@ -8,7 +8,7 @@ const debug = debugWithName('plugin:withUtils')
  * This plugin makes various util commands available in the editor
  *
  */
-export function createWithUtils(portableTextFeatures: PortableTextFeatures) {
+export function createWithUtils() {
   return function withUtils(editor: PortableTextSlateEditor): PortableTextSlateEditor {
     // Expands the the selection to wrap around the word the focus is at
     editor.pteExpandToWord = () => {

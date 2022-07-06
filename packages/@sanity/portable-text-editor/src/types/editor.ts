@@ -72,6 +72,7 @@ export type EditorSelection = {anchor: EditorSelectionPoint; focus: EditorSelect
 export interface PortableTextSlateEditor extends ReactEditor {
   _key: 'editor'
   _type: 'editor'
+  destroy: () => void
   editable: EditableAPI
   history: History
   insertPortableTextData: (data: DataTransfer) => boolean

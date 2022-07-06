@@ -1,5 +1,5 @@
-import {isEqual} from 'lodash'
-import {Observable, Subject} from 'rxjs'
+/* eslint-disable max-nested-callbacks */
+import {Observable, Subject, Subscription} from 'rxjs'
 import {
   Descendant,
   Editor,
@@ -16,12 +16,12 @@ import {
 import {insert, setIfMissing, unset} from '../../patch/PatchEvent'
 import type {Patch} from '../../types/patch'
 
-import {fromSlateValue, isEqualToEmptyEditor, toSlateValue} from '../../utils/values'
+import {fromSlateValue, isEqualToEmptyEditor} from '../../utils/values'
 import {PortableTextBlock, PortableTextFeatures} from '../../types/portableText'
 import {EditorChange, PortableTextSlateEditor} from '../../types/editor'
 import {debugWithName} from '../../utils/debug'
 import {PATCHING, isPatching, withoutPatching} from '../../utils/withoutPatching'
-import {KEY_TO_SLATE_ELEMENT, KEY_TO_VALUE_ELEMENT} from '../../utils/weakMaps'
+import {KEY_TO_VALUE_ELEMENT} from '../../utils/weakMaps'
 import {createPatchToOperations} from '../../utils/patchToOperations'
 import {keyGenerator} from '../..'
 import {withoutSaving} from './createWithUndoRedo'
@@ -90,139 +90,152 @@ export function createWithPatches(
     snapshot: PortableTextBlock[] | undefined
     previousSnapshot: PortableTextBlock[] | undefined
   }>
-): (editor: PortableTextSlateEditor) => PortableTextSlateEditor {
+): [editor: (editor: PortableTextSlateEditor) => PortableTextSlateEditor, cleanupFn: () => void] {
   let previousChildren: Descendant[]
 
   const patchToOperations = createPatchToOperations(portableTextFeatures, keyGenerator)
-  return function withPatches(editor: PortableTextSlateEditor) {
-    PATCHING.set(editor, true)
+  let patchSubscription: Subscription
+  const cleanupFn = () => {
+    if (patchSubscription) {
+      debug('Unsubscribing to patches')
+      patchSubscription.unsubscribe()
+    }
+  }
+  return [
+    function withPatches(editor: PortableTextSlateEditor) {
+      PATCHING.set(editor, true)
 
-    previousChildren = [...editor.children]
+      previousChildren = [...editor.children]
 
-    // Inspect incoming patches and adjust editor selection accordingly.
-    if (incomingPatches$) {
-      incomingPatches$.subscribe(({patches, snapshot, previousSnapshot}) => {
-        const remotePatches = patches.filter((p) => p.origin !== 'local')
-        if (remotePatches.length !== 0) {
-          const prevOperations = [...editor.operations]
-          Editor.withoutNormalizing(editor, () => {
-            remotePatches.forEach((patch) => {
-              debug(`Handling remote patch ${JSON.stringify(patch)}`)
-              // eslint-disable-next-line max-nested-callbacks
-              withoutPatching(editor, () => {
-                // eslint-disable-next-line max-nested-callbacks
-                withoutSaving(editor, () => {
-                  patchToOperations(editor, patch, patches, snapshot, previousSnapshot)
+      // Inspect incoming patches and adjust editor selection accordingly.
+      if (incomingPatches$) {
+        debug('Subscribing to patches')
+        patchSubscription = incomingPatches$.subscribe(({patches, snapshot, previousSnapshot}) => {
+          const remotePatches = patches.filter((p) => p.origin !== 'local')
+          if (remotePatches.length !== 0) {
+            const prevOperations = [...editor.operations]
+            Editor.withoutNormalizing(editor, () => {
+              remotePatches.forEach((patch) => {
+                debug(`Handling remote patch ${JSON.stringify(patch)}`)
+                withoutPatching(editor, () => {
+                  withoutSaving(editor, () => {
+                    patchToOperations(editor, patch, patches, snapshot, previousSnapshot)
+                  })
                 })
               })
             })
-          })
-          if (editor.operations.length !== prevOperations.length) {
-            editor.onChange()
+            if (editor.operations.length !== prevOperations.length) {
+              editor.onChange()
+            }
+            syncValue()
           }
+          // Always sync the value if we had local ones
+          if (patches.some((p) => p.origin === 'local')) {
+            syncValue()
+          }
+        })
+      }
+
+      const {apply} = editor
+
+      editor.apply = (operation: Operation): void | Editor => {
+        if (editor.readOnly) {
+          editor.apply(operation)
+          return editor
         }
-        syncValue()
-      })
-    }
+        let patches: Patch[] = []
 
-    const {apply} = editor
+        // The previous value is needed to figure out the _key of deleted nodes. The editor.children would no
+        // longer contain that information if the node is already deleted.
+        // debug('setting previous children', operation, editor.children)
+        previousChildren = editor.children
 
-    editor.apply = (operation: Operation): void | Editor => {
-      if (editor.readOnly) {
-        editor.apply(operation)
-        return editor
-      }
-      let patches: Patch[] = []
+        const editorWasEmpty = isEqualToEmptyEditor(previousChildren, portableTextFeatures)
 
-      // The previous value is needed to figure out the _key of deleted nodes. The editor.children would no
-      // longer contain that information if the node is already deleted.
-      // debug('setting previous children', operation, editor.children)
-      previousChildren = editor.children
+        // Apply the operation
+        apply(operation)
 
-      const editorWasEmpty = isEqualToEmptyEditor(previousChildren, portableTextFeatures)
+        const editorIsEmpty = isEqualToEmptyEditor(editor.children, portableTextFeatures)
 
-      // Apply the operation
-      apply(operation)
+        if (!isPatching(editor)) {
+          debug(`Editor is not producing patch for operation ${operation.type}`, operation)
+          return editor
+        }
 
-      const editorIsEmpty = isEqualToEmptyEditor(editor.children, portableTextFeatures)
-
-      if (!isPatching(editor)) {
-        debug(`Editor is not producing patch for operation ${operation.type}`, operation)
-        return editor
-      }
-
-      if (editorWasEmpty && operation.type !== 'set_selection') {
-        patches.push(
-          setIfMissing([], []),
-          insert(
-            [
-              fromSlateValue(
-                previousChildren,
-                portableTextFeatures.types.block.name,
-                KEY_TO_VALUE_ELEMENT.get(editor)
-              )[0],
-            ],
-            'before',
-            [0]
+        if (editorWasEmpty && operation.type !== 'set_selection') {
+          patches.push(
+            setIfMissing([], []),
+            insert(
+              [
+                fromSlateValue(
+                  previousChildren,
+                  portableTextFeatures.types.block.name,
+                  KEY_TO_VALUE_ELEMENT.get(editor)
+                )[0],
+              ],
+              'before',
+              [0]
+            )
           )
-        )
-      }
-      switch (operation.type) {
-        case 'insert_text':
-          patches = [...patches, ...insertTextPatch(editor, operation, previousChildren)]
-          break
-        case 'remove_text':
-          patches = [...patches, ...removeTextPatch(editor, operation, previousChildren)]
-          break
-        case 'remove_node':
-          patches = [...patches, ...removeNodePatch(editor, operation, previousChildren)]
-          break
-        case 'split_node':
-          patches = [...patches, ...splitNodePatch(editor, operation, previousChildren)]
-          break
-        case 'insert_node':
-          patches = [...patches, ...insertNodePatch(editor, operation, previousChildren)]
-          break
-        case 'set_node':
-          patches = [...patches, ...setNodePatch(editor, operation, previousChildren)]
-          break
-        case 'merge_node':
-          patches = [...patches, ...mergeNodePatch(editor, operation, previousChildren)]
-          break
-        case 'move_node':
-          patches = [...patches, ...moveNodePatch(editor, operation, previousChildren)]
-          break
-        case 'set_selection':
-        default:
-        // Do nothing
-      }
+        }
+        switch (operation.type) {
+          case 'insert_text':
+            patches = [...patches, ...insertTextPatch(editor, operation, previousChildren)]
+            break
+          case 'remove_text':
+            patches = [...patches, ...removeTextPatch(editor, operation, previousChildren)]
+            break
+          case 'remove_node':
+            patches = [...patches, ...removeNodePatch(editor, operation, previousChildren)]
+            break
+          case 'split_node':
+            patches = [...patches, ...splitNodePatch(editor, operation, previousChildren)]
+            break
+          case 'insert_node':
+            patches = [...patches, ...insertNodePatch(editor, operation, previousChildren)]
+            break
+          case 'set_node':
+            patches = [...patches, ...setNodePatch(editor, operation, previousChildren)]
+            break
+          case 'merge_node':
+            patches = [...patches, ...mergeNodePatch(editor, operation, previousChildren)]
+            break
+          case 'move_node':
+            patches = [...patches, ...moveNodePatch(editor, operation, previousChildren)]
+            break
+          case 'set_selection':
+          default:
+          // Do nothing
+        }
 
-      // Unset the value if this.operation made the editor empty
-      if (editorIsEmpty && ['remove_text', 'remove_node'].includes(operation.type)) {
-        patches = [...patches, unset([])]
-        change$.next({
-          type: 'unset',
-          previousValue: fromSlateValue(
-            previousChildren,
-            portableTextFeatures.types.block.name,
-            KEY_TO_VALUE_ELEMENT.get(editor)
-          ),
-        })
-      }
-
-      // Emit all patches
-      if (patches.length > 0) {
-        patches.forEach((patch) => {
+        // Unset the value if the operation made the editor empty
+        if (editorIsEmpty && ['remove_text', 'remove_node'].includes(operation.type)) {
+          patches = [...patches, unset([])]
           change$.next({
-            type: 'patch',
-            patch: {...patch, origin: 'local'},
+            type: 'unset',
+            previousValue: fromSlateValue(
+              previousChildren,
+              portableTextFeatures.types.block.name,
+              KEY_TO_VALUE_ELEMENT.get(editor)
+            ),
           })
-        })
+        }
+
+        // Emit all patches
+        if (patches.length > 0) {
+          patches.forEach((patch) => {
+            change$.next({
+              type: 'patch',
+              patch: {...patch, origin: 'local'},
+            })
+          })
+        }
+        return editor
       }
       return editor
-    }
-    return editor
-  }
+    },
+    cleanupFn,
+  ]
 }
 
 // function adjustSelection(

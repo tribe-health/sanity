@@ -23,13 +23,14 @@ import {
 import {validateValue} from '../utils/validateValue'
 import {debugWithName} from '../utils/debug'
 import {toSlateValue} from '../utils/values'
+import {KEY_TO_SLATE_ELEMENT, KEY_TO_VALUE_ELEMENT} from '../utils/weakMaps'
 import {PortableTextEditorContext} from './hooks/usePortableTextEditor'
 import {PortableTextEditorSelectionContext} from './hooks/usePortableTextEditorSelection'
 import {PortableTextEditorValueContext} from './hooks/usePortableTextEditorValue'
 import {withPortableText} from './withPortableText'
 
 // Debounce time for flushing local patches (ms since user haven't produced a patch)
-export const FLUSH_PATCHES_DEBOUNCE_MS = 1500
+export const FLUSH_PATCHES_DEBOUNCE_MS = 1000
 
 export const defaultKeyGenerator = () => randomKey(12)
 
@@ -46,7 +47,7 @@ export type PortableTextEditorProps = {
 }
 
 type State = {
-  currentValue: PortableTextBlock[] | undefined
+  currentValue: PortableTextBlock[] | undefined | null
   hasPendingLocalPatches: boolean
   invalidValueResolution: InvalidValueResolution | null
   selection: EditorSelection // This state is only used to force the selection context to update.
@@ -84,22 +85,11 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     // Setup keyGenerator (either from props, or default)
     this.keyGenerator = props.keyGenerator || defaultKeyGenerator
 
-    // Validate the Portable Text value
     let state: State = {
       invalidValueResolution: null,
       selection: null,
       hasPendingLocalPatches: false,
-      currentValue: props.value,
-    }
-    const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
-    if (props.value && !validation.valid) {
-      this.change$.next({type: 'loading', isLoading: false})
-      this.change$.next({
-        type: 'invalidValue',
-        resolution: validation.resolution,
-        value: props.value,
-      })
-      state = {...state, invalidValueResolution: validation.resolution}
+      currentValue: props.value || null,
     }
 
     // Setup processed incoming patches stream
@@ -131,13 +121,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         )
     }
 
-    // Create state
-    this.maxBlocks =
-      typeof props.maxBlocks === 'undefined'
-        ? undefined
-        : parseInt(props.maxBlocks.toString(), 10) || undefined
-    this.readOnly = props.readOnly || false
-    this.state = state
     // Subscribe to editor events and set state for selection and pending patches
     this.changeSubscription = this.change$.subscribe((next: EditorChange): void => {
       const {onChange} = this.props
@@ -155,6 +138,28 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       }
     })
 
+    // Validate the incoming value
+    if (props.value) {
+      const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
+      if (props.value && !validation.valid) {
+        this.change$.next({type: 'loading', isLoading: false})
+        this.change$.next({
+          type: 'invalidValue',
+          resolution: validation.resolution,
+          value: props.value,
+        })
+        state = {...state, invalidValueResolution: validation.resolution}
+      }
+    }
+
+    // Create state
+    this.maxBlocks =
+      typeof props.maxBlocks === 'undefined'
+        ? undefined
+        : parseInt(props.maxBlocks.toString(), 10) || undefined
+    this.readOnly = props.readOnly || false
+    this.state = state
+
     // Create the slate instance
     this.slateInstance = withPortableText(createEditor(), {
       change$: this.change$,
@@ -165,14 +170,17 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       readOnly: this.readOnly,
       syncValue: this.syncValue,
     })
+    KEY_TO_VALUE_ELEMENT.set(this.slateInstance, {})
+    KEY_TO_SLATE_ELEMENT.set(this.slateInstance, {})
   }
 
   componentWillUnmount() {
     this.flush()
     this.changeSubscription.unsubscribe()
+    this.slateInstance.destroy()
   }
 
-  componentDidUpdate(prevProps: PortableTextEditorProps, prevState: State) {
+  componentDidUpdate(prevProps: PortableTextEditorProps) {
     if (this.props.readOnly !== prevProps.readOnly) {
       this.readOnly = this.props.readOnly || false
       this.slateInstance.readOnly = this.readOnly
@@ -186,24 +194,26 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     }
 
     // Update the value if we are not subscribing to patches,
-    // or if we do, then only when the current value is undefined and then became something.
-    // The value will otherwise be synced after the incoming remote patches are applied to the editor.
+    // or if we do, then only when the current value is never set before (is null).
     if (
       (!this.props.incomingPatches$ && this.state.currentValue !== this.props.value) ||
-      (this.props.incomingPatches$ && this.state.currentValue === undefined && this.props.value)
+      (this.props.incomingPatches$ &&
+        this.state.currentValue === null &&
+        this.props.value &&
+        this.props.value !== prevProps.value)
     ) {
       this.syncValue()
     }
 
     // Validate again if value length has changed
-    if (this.props.value && (prevProps.value || []).length !== this.props.value.length) {
+    if (this.props.value && prevProps.value !== this.props.value) {
       debug('Validating')
       const validation = validateValue(
         this.props.value,
         this.portableTextFeatures,
         this.keyGenerator
       )
-      if (this.props.value && !validation.valid && !prevState.invalidValueResolution) {
+      if (!validation.valid) {
         this.change$.next({
           type: 'invalidValue',
           resolution: validation.resolution,
@@ -216,7 +226,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
   public setEditable = (editable: EditableAPI) => {
     this.editable = {...this.editable, ...editable}
-    this.change$.next({type: 'value', value: this.state.currentValue})
+    this.change$.next({type: 'value', value: this.state.currentValue || undefined})
     this.change$.next({type: 'ready'})
   }
 
@@ -226,7 +236,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     }
     return (
       <PortableTextEditorContext.Provider value={this}>
-        <PortableTextEditorValueContext.Provider value={this.state.currentValue}>
+        <PortableTextEditorValueContext.Provider value={this.state.currentValue || undefined}>
           <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
             {this.props.children}
           </PortableTextEditorSelectionContext.Provider>
@@ -262,10 +272,11 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
                 ],
               },
             ],
-        {portableTextFeatures: this.portableTextFeatures}
+        {portableTextFeatures: this.portableTextFeatures},
+        KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
       )
       if (slateValueFromProps) {
-        const originalChildren = [...this.slateInstance.children]
+        const originalChildren = this.slateInstance.children
         slateValueFromProps.forEach((n, i) => {
           const existing = originalChildren[i]
           if (existing && !isEqual(n, existing)) {
