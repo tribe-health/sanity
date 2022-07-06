@@ -13,6 +13,7 @@ export interface PatchesData {
   patches: Array<FormPatch>
   shouldReset: boolean
   snapshot: any
+  previousSnapshot?: any
 }
 
 /**

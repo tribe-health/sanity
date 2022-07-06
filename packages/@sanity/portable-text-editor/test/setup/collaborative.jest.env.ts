@@ -4,6 +4,7 @@ import ipc from 'node-ipc'
 import {isEqual} from 'lodash'
 import {EditorSelection, PortableTextBlock} from '../../src'
 import {normalizeSelection} from '../../src/utils/selection'
+import {FLUSH_PATCHES_DEBOUNCE_MS} from '../../src/editor/PortableTextEditor'
 
 ipc.config.id = 'collaborative-jest-environment-ipc-client'
 ipc.config.retry = 1500
@@ -17,8 +18,8 @@ const WEB_SERVER_ROOT_URL = 'http://localhost:3000'
 const DEBUG = process.env.DEBUG || false
 
 // Wait this long for selections and a new doc revision to appear on the clients
-const SELECTION_TIMEOUT_MS = 50 // This will also be an indicator of the performance in the editor. Set it as low as possible without breaking the tests.
-const REVISION_TIMEOUT_MS = 800 // 800 seems to be the limit for the doc patching to go full circle (increase this if tests starts to time out)
+const SELECTION_TIMEOUT_MS = 30 // This will also be an indicator of the performance in the editor. Set it as low as possible without breaking the tests.
+const REVISION_TIMEOUT_MS = FLUSH_PATCHES_DEBOUNCE_MS + 300 // 300 seems to be the limit for the doc patching to go full circle (increase this if tests starts to time out)
 
 let testId: string
 

@@ -22,7 +22,7 @@ export const withPortableText = <T extends Editor>(
   const e = editor as T & PortableTextSlateEditor
   e.maxBlocks = options.maxBlocks || -1
   e.readOnly = options.readOnly || false
-  const {portableTextFeatures, keyGenerator, change$, incomingPatches$} = options
+  const {portableTextFeatures, keyGenerator, change$, incomingPatches$, syncValue} = options
   const operationToPatches = createOperationToPatches(portableTextFeatures)
   const withObjectKeys = createWithObjectKeys(portableTextFeatures, keyGenerator)
   const withSchemaTypes = createWithSchemaTypes(portableTextFeatures)
@@ -30,6 +30,7 @@ export const withPortableText = <T extends Editor>(
     operationToPatches,
     change$,
     portableTextFeatures,
+    syncValue,
     incomingPatches$
   )
 

@@ -72,7 +72,6 @@ export function Compositor(props: InputProps) {
     onCopy,
     onOpenItem,
     onCloseItem,
-    onFocusPath,
     onPaste,
     onToggleFullscreen,
     path,
@@ -81,7 +80,6 @@ export function Compositor(props: InputProps) {
     value,
     readOnly,
     renderPreview,
-    // ...restProps
   } = props
 
   const editor = usePortableTextEditor()
@@ -269,7 +267,6 @@ export function Compositor(props: InputProps) {
         initialSelection={initialSelection}
         isFullscreen={isFullscreen}
         onOpenItem={onOpenItem}
-        onFocusPath={onFocusPath}
         onCopy={onCopy}
         onPaste={onPaste}
         onToggleFullscreen={handleToggleFullscreen}
@@ -293,7 +290,6 @@ export function Compositor(props: InputProps) {
       isFullscreen,
       onCopy,
       onOpenItem,
-      onFocusPath,
       onPaste,
       path,
       readOnly,
@@ -342,6 +338,15 @@ export function Compositor(props: InputProps) {
 
     [portal.element, portalElement, wrapperElement]
   )
+
+  const editorLayer = useMemo(
+    () => (
+      <Portal __unstable_name={isFullscreen ? 'expanded' : 'collapsed'}>
+        <ExpandedLayer data-fullscreen={isFullscreen ? '' : undefined}>{children}</ExpandedLayer>
+      </Portal>
+    ),
+    [children, isFullscreen]
+  )
   return (
     <PortalProvider __unstable_elements={portalElements}>
       <ActivateOnFocus
@@ -357,10 +362,7 @@ export function Compositor(props: InputProps) {
         >
           <Root data-focused={hasFocus ? '' : undefined} data-read-only={readOnly ? '' : undefined}>
             <div data-wrapper="" ref={setWrapperElement}>
-              <Portal __unstable_name={isFullscreen ? 'expanded' : 'collapsed'}>
-                {/* TODO: Can we get rid of this DOM-rerender? */}
-                {isFullscreen ? <ExpandedLayer>{children}</ExpandedLayer> : children}
-              </Portal>
+              {editorLayer}
             </div>
             <div data-border="" />
           </Root>

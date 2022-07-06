@@ -1,6 +1,6 @@
 import {BaseRange, Transforms} from 'slate'
-import {debounce, isEqual} from 'lodash'
-import React, {useCallback, useMemo, useState, useEffect, forwardRef} from 'react'
+import {isEqual} from 'lodash'
+import React, {useCallback, useMemo, useEffect, forwardRef} from 'react'
 import {Editable as SlateEditable, Slate, ReactEditor, withReact} from '@sanity/slate-react'
 import {
   EditorSelection,
@@ -123,8 +123,8 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   )
 
   const isEmpty = useMemo(
-    () => !value || isEqualToEmptyEditor(value, portableTextFeatures),
-    [portableTextFeatures, value]
+    () => !value || isEqualToEmptyEditor(slateEditor.children, portableTextFeatures),
+    [portableTextFeatures, slateEditor.children, value]
   )
 
   const initialValue = useMemo(
@@ -158,16 +158,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   useMemo(
     () => withEditableAPI(withInsertData(withHotKeys(withReact(slateEditor)))),
     [slateEditor, withEditableAPI, withHotKeys, withInsertData]
-  )
-
-  // Track composing
-  const [isComposing, setIsComposing] = useState(false)
-  const unsetIsComposingDebounced = useMemo(
-    () =>
-      debounce(() => {
-        setIsComposing(false)
-      }, 1000),
-    [setIsComposing]
   )
 
   const renderElement = useCallback(
@@ -226,41 +216,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       renderPlaceholder,
     ]
   )
-
-  // Restore value from props
-  useEffect(() => {
-    if (isComposing) {
-      debug('Not setting value from props (is composing)')
-      return
-    }
-    const defaultValue = [placeHolderBlock]
-    const slateValueFromProps = toSlateValue(
-      getValueOrInitialValue(value, defaultValue),
-      portableTextEditor
-    )
-    if (value) {
-      const originalChildren = [...slateEditor.children]
-      slateValueFromProps.forEach((n, i) => {
-        const existing = originalChildren[i]
-        if (existing && !isEqual(n, existing)) {
-          originalChildren.splice(i, 1, n)
-        } else if (!existing) {
-          originalChildren.push(n)
-        }
-      })
-      if (originalChildren.length > slateValueFromProps.length) {
-        originalChildren.splice(
-          slateValueFromProps.length,
-          slateEditor.children.length - slateValueFromProps.length
-        )
-      }
-      slateEditor.children = originalChildren
-    } else {
-      slateEditor.children = slateValueFromProps
-    }
-    debug(`Setting value from props`, value)
-    slateEditor.onChange()
-  }, [isComposing, placeHolderBlock, portableTextEditor, slateEditor, value])
 
   // Restore selection from props
   useEffect(() => {
@@ -371,13 +326,11 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
 
   const handleOnBeforeInput = useCallback(
     (event: Event) => {
-      setIsComposing(true)
-      unsetIsComposingDebounced()
       if (onBeforeInput) {
         onBeforeInput(event)
       }
     },
-    [unsetIsComposingDebounced, onBeforeInput]
+    [onBeforeInput]
   )
 
   const handleKeyDown = slateEditor.pteWithHotKeys

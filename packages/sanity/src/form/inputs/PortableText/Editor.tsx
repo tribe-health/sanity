@@ -24,13 +24,13 @@ import {
 } from './Editor.styles'
 import {useSpellcheck} from './hooks/useSpellCheck'
 import {useScrollSelectionIntoView} from './hooks/useScrollSelectionIntoView'
+
 interface EditorProps {
   initialSelection?: EditorSelection
   isFullscreen: boolean
   hotkeys: HotkeyOptions
   onCopy?: OnCopyFn
   onOpenItem: (path: Path) => void
-  onFocusPath: (nextPath: Path) => void
   onPaste?: OnPasteFn
   onToggleFullscreen: () => void
   path: Path
@@ -53,7 +53,6 @@ export function Editor(props: EditorProps) {
     initialSelection,
     isFullscreen,
     onCopy,
-    onFocusPath,
     onOpenItem,
     onPaste,
     onToggleFullscreen,

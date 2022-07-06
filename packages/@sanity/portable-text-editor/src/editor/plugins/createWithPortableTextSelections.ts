@@ -33,9 +33,9 @@ export function createWithPortableTextSelections(
       }
       if (ptRange) {
         debug(`Emitting selection ${JSON.stringify(ptRange)}`)
-        change$.next({type: 'selection', selection: {...ptRange}, adjusted: false})
+        change$.next({type: 'selection', selection: {...ptRange}})
       } else {
-        change$.next({type: 'selection', selection: null, adjusted: false})
+        change$.next({type: 'selection', selection: null})
       }
     }
 

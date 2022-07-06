@@ -42,6 +42,7 @@ import {RenderBlockActionsCallback} from './types'
 import {PortableTextMarkersProvider} from './contexts/PortableTextMarkers'
 import {PortableTextMemberItemsProvider} from './contexts/PortableTextMembers'
 import {_isArrayOfObjectsFieldMember, _isBlockType} from './_helpers'
+import {editor} from '../../../datastores/grants/debug/exampleGrants'
 
 export type PTObjectMember = ArrayOfObjectsItemMember<
   ObjectFormNode<
@@ -117,16 +118,30 @@ export function PortableTextInput(props: PortableTextInputProps) {
   const portableTextMemberItemsRef: React.MutableRefObject<PortableTextMemberItem[]> = useRef([])
 
   // Memoized patch stream
-  const remotePatchSubject: Subject<{
+  const patchSubject: Subject<{
     patches: EditorPatch[]
     snapshot: PortableTextBlock[] | undefined
+    previousSnapshot: PortableTextBlock[] | undefined
   }> = useMemo(() => new Subject(), [])
-  const remotePatch$ = useMemo(() => remotePatchSubject.asObservable(), [remotePatchSubject])
+  const remotePatch$ = useMemo(() => patchSubject.asObservable(), [patchSubject])
 
   const innerElementRef = useRef<HTMLDivElement | null>(null)
 
   const handleToggleFullscreen = useCallback(() => {
-    setIsFullscreen((v) => !v)
+    if (editorRef.current) {
+      const prevSel = PortableTextEditor.getSelection(editorRef.current)
+      setIsFullscreen((v) => !v)
+      editorRef.current.syncValue(() => {
+        setTimeout(() => {
+          if (editorRef.current) {
+            PortableTextEditor.focus(editorRef.current)
+            if (prevSel) {
+              PortableTextEditor.select(editorRef.current, {...prevSel})
+            }
+          }
+        })
+      })
+    }
   }, [])
 
   // Reset invalidValue if new value is coming in from props
@@ -136,12 +151,12 @@ export function PortableTextInput(props: PortableTextInputProps) {
     }
   }, [invalidValue, value])
 
-  // Subscribe to incoming patches
+  // Subscribe to patches
   useEffect(() => {
     return subscribe(({patches, snapshot, previousSnapshot}): void => {
-      remotePatchSubject.next({patches, snapshot, previousSnapshot})
+      patchSubject.next({patches, snapshot, previousSnapshot})
     })
-  }, [remotePatchSubject, subscribe])
+  }, [patchSubject, subscribe])
 
   // Populate the portableTextMembers Map
   const portableTextMemberItems: PortableTextMemberItem[] = useMemo(() => {

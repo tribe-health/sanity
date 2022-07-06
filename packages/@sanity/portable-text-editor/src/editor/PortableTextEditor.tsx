@@ -1,10 +1,10 @@
 import React from 'react'
 import {ArraySchemaType, Path} from '@sanity/types'
 import {Subscription, Subject, defer, of, EMPTY, Observable, OperatorFunction} from 'rxjs'
-import {concatMap, finalize, startWith, switchMap, tap} from 'rxjs/operators'
+import {concatMap, share, switchMap, tap} from 'rxjs/operators'
 import {randomKey} from '@sanity/util/content'
 import {createEditor} from 'slate'
-import {debounce, isEqual} from 'lodash'
+import {debounce, isEqual, throttle} from 'lodash'
 import {compileType} from '../utils/schema'
 import {getPortableTextFeatures} from '../utils/getPortableTextFeatures'
 import {PortableTextBlock, PortableTextFeatures, PortableTextChild} from '../types/portableText'
@@ -22,49 +22,295 @@ import {
 } from '../types/editor'
 import {validateValue} from '../utils/validateValue'
 import {debugWithName} from '../utils/debug'
+import {toSlateValue} from '../utils/values'
 import {PortableTextEditorContext} from './hooks/usePortableTextEditor'
 import {PortableTextEditorSelectionContext} from './hooks/usePortableTextEditorSelection'
 import {PortableTextEditorValueContext} from './hooks/usePortableTextEditorValue'
 import {withPortableText} from './withPortableText'
 
-const FLUSH_PATCHES_DEBOUNCE_MS = 500
+// Debounce time for flushing local patches (ms since user haven't produced a patch)
+export const FLUSH_PATCHES_DEBOUNCE_MS = 1500
 
 export const defaultKeyGenerator = () => randomKey(12)
 
 const debug = debugWithName('component:PortableTextEditor')
 
-function bufferUntil<T>(emitWhen: (currentBuffer: T[]) => boolean): OperatorFunction<T, T[]> {
-  return (source: Observable<T>) =>
-    defer(() => {
-      let buffer: T[] = [] // custom buffer
-      return source.pipe(
-        tap((v) => buffer.push(v)), // add values to buffer
-        switchMap(() => (emitWhen(buffer) ? of(buffer) : EMPTY)), // emit the buffer when the condition is met
-        tap(() => (buffer = [])) // clear the buffer
-      )
-    })
-}
-
 export type PortableTextEditorProps = {
+  incomingPatches$?: PatchObservable
   keyGenerator?: () => string
   maxBlocks?: number | string
   onChange: (change: EditorChange) => void
-  incomingPatches$?: PatchObservable
   readOnly?: boolean
   type: ArraySchemaType<PortableTextBlock> | RawType
   value?: PortableTextBlock[]
 }
 
 type State = {
+  currentValue: PortableTextBlock[] | undefined
+  hasPendingLocalPatches: boolean
   invalidValueResolution: InvalidValueResolution | null
   selection: EditorSelection // This state is only used to force the selection context to update.
-  adjustedSelection: EditorSelection
-  hasPendingLocalPatches: boolean
-  currentValue: PortableTextBlock[] | undefined
 }
-
-// The PT editor's public API
 export class PortableTextEditor extends React.Component<PortableTextEditorProps, State> {
+  public change$: EditorChanges = new Subject()
+  public keyGenerator: () => string
+  public maxBlocks: number | undefined
+  public portableTextFeatures: PortableTextFeatures
+  public readOnly: boolean
+  public slateInstance: PortableTextSlateEditor
+  public type: ArraySchemaType<PortableTextBlock>
+
+  private changeSubscription: Subscription
+  private editable?: EditableAPI
+  private incomingPatches$?: PatchObservable
+  private pendingPatches: Patch[] = []
+  private returnedPatches: Patch[] = []
+
+  constructor(props: PortableTextEditorProps) {
+    super(props)
+
+    if (!props.type) {
+      throw new Error('PortableTextEditor: missing "type" property')
+    }
+
+    // Test if we have a compiled schema type, if not, conveniently compile it
+    this.type = props.type.hasOwnProperty('jsonType') ? props.type : compileType(props.type)
+    // Indicate that we are loading
+    this.change$.next({type: 'loading', isLoading: true})
+
+    // Get the block types feature set (lookup table)
+    this.portableTextFeatures = getPortableTextFeatures(this.type)
+
+    // Setup keyGenerator (either from props, or default)
+    this.keyGenerator = props.keyGenerator || defaultKeyGenerator
+
+    // Validate the Portable Text value
+    let state: State = {
+      invalidValueResolution: null,
+      selection: null,
+      hasPendingLocalPatches: false,
+      currentValue: props.value,
+    }
+    const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
+    if (props.value && !validation.valid) {
+      this.change$.next({type: 'loading', isLoading: false})
+      this.change$.next({
+        type: 'invalidValue',
+        resolution: validation.resolution,
+        value: props.value,
+      })
+      state = {...state, invalidValueResolution: validation.resolution}
+    }
+
+    // Setup processed incoming patches stream
+    if (props.incomingPatches$) {
+      // Buffer patches until we are no longer producing local patches
+      this.incomingPatches$ = props.incomingPatches$
+        .pipe(
+          tap(
+            ({
+              patches,
+            }: {
+              patches: Patch[]
+              snapshot: PortableTextBlock[] | undefined
+              previousSnapshot: PortableTextBlock[] | undefined
+            }) => {
+              // Reset hasPendingLocalPatches when local patches are returned
+              if (patches.some((p) => p.origin === 'local')) {
+                this.setState({hasPendingLocalPatches: false})
+              }
+            }
+          )
+        )
+        .pipe(
+          bufferUntil(() => !this.state.hasPendingLocalPatches),
+          concatMap((incoming) => {
+            return incoming
+          }),
+          share()
+        )
+    }
+
+    // Create state
+    this.maxBlocks =
+      typeof props.maxBlocks === 'undefined'
+        ? undefined
+        : parseInt(props.maxBlocks.toString(), 10) || undefined
+    this.readOnly = props.readOnly || false
+    this.state = state
+    // Subscribe to editor events and set state for selection and pending patches
+    this.changeSubscription = this.change$.subscribe((next: EditorChange): void => {
+      const {onChange} = this.props
+      switch (next.type) {
+        case 'patch':
+          this.pendingPatches.push(next.patch)
+          this.setState({hasPendingLocalPatches: true}, () => this.flushDebounced())
+          break
+        case 'selection':
+          onChange(next)
+          this.setState({selection: next.selection})
+          break
+        default:
+          onChange(next)
+      }
+    })
+
+    // Create the slate instance
+    this.slateInstance = withPortableText(createEditor(), {
+      change$: this.change$,
+      incomingPatches$: this.incomingPatches$,
+      keyGenerator: this.keyGenerator,
+      maxBlocks: this.maxBlocks,
+      portableTextFeatures: this.portableTextFeatures,
+      readOnly: this.readOnly,
+      syncValue: this.syncValue,
+    })
+  }
+
+  componentWillUnmount() {
+    this.flush()
+    this.changeSubscription.unsubscribe()
+  }
+
+  componentDidUpdate(prevProps: PortableTextEditorProps, prevState: State) {
+    if (this.props.readOnly !== prevProps.readOnly) {
+      this.readOnly = this.props.readOnly || false
+      this.slateInstance.readOnly = this.readOnly
+    }
+    if (this.props.maxBlocks !== prevProps.maxBlocks) {
+      this.maxBlocks =
+        typeof this.props.maxBlocks === 'undefined'
+          ? undefined
+          : parseInt(this.props.maxBlocks.toString(), 10) || undefined
+      this.slateInstance.maxBlocks = this.maxBlocks
+    }
+
+    // Update the value if we are not subscribing to patches,
+    // or if we do, then only when the current value is undefined and then became something.
+    // The value will otherwise be synced after the incoming remote patches are applied to the editor.
+    if (
+      (!this.props.incomingPatches$ && this.state.currentValue !== this.props.value) ||
+      (this.props.incomingPatches$ && this.state.currentValue === undefined && this.props.value)
+    ) {
+      this.syncValue()
+    }
+
+    // Validate again if value length has changed
+    if (this.props.value && (prevProps.value || []).length !== this.props.value.length) {
+      debug('Validating')
+      const validation = validateValue(
+        this.props.value,
+        this.portableTextFeatures,
+        this.keyGenerator
+      )
+      if (this.props.value && !validation.valid && !prevState.invalidValueResolution) {
+        this.change$.next({
+          type: 'invalidValue',
+          resolution: validation.resolution,
+          value: this.props.value,
+        })
+        this.setState({invalidValueResolution: validation.resolution})
+      }
+    }
+  }
+
+  public setEditable = (editable: EditableAPI) => {
+    this.editable = {...this.editable, ...editable}
+    this.change$.next({type: 'value', value: this.state.currentValue})
+    this.change$.next({type: 'ready'})
+  }
+
+  render() {
+    if (this.state.invalidValueResolution) {
+      return this.state.invalidValueResolution.description
+    }
+    return (
+      <PortableTextEditorContext.Provider value={this}>
+        <PortableTextEditorValueContext.Provider value={this.state.currentValue}>
+          <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
+            {this.props.children}
+          </PortableTextEditorSelectionContext.Provider>
+        </PortableTextEditorValueContext.Provider>
+      </PortableTextEditorContext.Provider>
+    )
+  }
+
+  public syncValue: (callbackFn?: () => void) => void = (callbackFn) => {
+    if (this.state.hasPendingLocalPatches) {
+      debug('Not syncing value (has pending local patches)')
+      retrySync(this.syncValue, callbackFn)
+      return
+    }
+    if (this.state.currentValue !== this.props.value) {
+      debug('Syncing value')
+      const slateValueFromProps = toSlateValue(
+        (this.props.value || []).length > 0
+          ? this.props.value
+          : [
+              {
+                _type: this.portableTextFeatures.types.block.name,
+                _key: this.keyGenerator(),
+                style: this.portableTextFeatures.styles[0].value,
+                markDefs: [],
+                children: [
+                  {
+                    _type: 'span',
+                    _key: this.keyGenerator(),
+                    text: '',
+                    marks: [],
+                  },
+                ],
+              },
+            ],
+        {portableTextFeatures: this.portableTextFeatures}
+      )
+      if (slateValueFromProps) {
+        const originalChildren = [...this.slateInstance.children]
+        slateValueFromProps.forEach((n, i) => {
+          const existing = originalChildren[i]
+          if (existing && !isEqual(n, existing)) {
+            originalChildren.splice(i, 1, n)
+          } else if (!existing) {
+            originalChildren.push(n)
+          }
+        })
+        if (originalChildren.length > slateValueFromProps.length) {
+          originalChildren.splice(
+            slateValueFromProps.length,
+            this.slateInstance.children.length - slateValueFromProps.length
+          )
+        }
+        this.slateInstance.children = originalChildren
+      } else {
+        this.slateInstance.children = slateValueFromProps
+      }
+      this.slateInstance.onChange()
+      this.setState({currentValue: this.props.value}, callbackFn)
+      return
+    }
+    debug('Not syncing value (is up to date)')
+    if (callbackFn) callbackFn()
+  }
+
+  // Data storing
+  private flush = () => {
+    const {onChange} = this.props
+    const finalPatches = [...this.pendingPatches]
+    if (finalPatches.length > 0) {
+      debug('Flushing', finalPatches)
+      finalPatches.forEach((p) => {
+        this.returnedPatches.push(p)
+      })
+      onChange({type: 'mutation', patches: finalPatches})
+      this.pendingPatches = []
+    }
+  }
+  private flushDebounced = debounce(this.flush, FLUSH_PATCHES_DEBOUNCE_MS, {
+    leading: false,
+    trailing: true,
+  })
+
+  // Static API methods
   static activeAnnotations = (editor: PortableTextEditor): PortableTextBlock[] => {
     return editor && editor.editable ? editor.editable.activeAnnotations() : []
   }
@@ -167,209 +413,18 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     debug(`Host toggling mark`, mark)
     editor.editable?.toggleMark(mark)
   }
+}
 
-  private changeSubscription: Subscription
-  private pendingPatches: Patch[] = []
-  private returnedPatches: Patch[] = []
+const retrySync = throttle((syncFn, callbackFn) => syncFn(callbackFn), 100)
 
-  public type: ArraySchemaType<PortableTextBlock>
-  public portableTextFeatures: PortableTextFeatures
-  public change$: EditorChanges = new Subject()
-  public editable?: EditableAPI
-  public keyGenerator: () => string
-  public maxBlocks: number | undefined
-  public readOnly: boolean
-  public incomingPatches$?: PatchObservable
-  public slateInstance: PortableTextSlateEditor
-
-  constructor(props: PortableTextEditorProps) {
-    super(props)
-
-    if (!props.type) {
-      throw new Error('PortableTextEditor: missing "type" property')
-    }
-
-    // Test if we have a compiled schema type, if not, conveniently compile it
-    this.type = props.type.hasOwnProperty('jsonType') ? props.type : compileType(props.type)
-    // Indicate that we are loading
-    this.change$.next({type: 'loading', isLoading: true})
-
-    // Get the block types feature set (lookup table)
-    this.portableTextFeatures = getPortableTextFeatures(this.type)
-
-    this.changeSubscription = this.change$.subscribe(this.onEditorChange)
-
-    // Setup keyGenerator (either from props, or default)
-    this.keyGenerator = props.keyGenerator || defaultKeyGenerator
-
-    // Validate the Portable Text value
-    let state: State = {
-      invalidValueResolution: null,
-      selection: null,
-      hasPendingLocalPatches: false,
-      adjustedSelection: null,
-      currentValue: props.value,
-    }
-    const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
-    if (props.value && !validation.valid) {
-      this.change$.next({type: 'loading', isLoading: false})
-      this.change$.next({
-        type: 'invalidValue',
-        resolution: validation.resolution,
-        value: props.value,
-      })
-      state = {...state, invalidValueResolution: validation.resolution}
-    }
-    if (props.incomingPatches$) {
-      const processReturnedPatches = tap(
-        ({patches}: {patches: Patch[]; snapshot: PortableTextBlock[] | undefined}) => {
-          if (patches.some((p) => p.origin === 'local')) {
-            this.setState({hasPendingLocalPatches: false})
-          }
-        }
+function bufferUntil<T>(emitWhen: (currentBuffer: T[]) => boolean): OperatorFunction<T, T[]> {
+  return (source: Observable<T>) =>
+    defer(() => {
+      let buffer: T[] = [] // custom buffer
+      return source.pipe(
+        tap((v) => buffer.push(v)), // add values to buffer
+        switchMap(() => (emitWhen(buffer) ? of(buffer) : EMPTY)), // emit the buffer when the condition is met
+        tap(() => (buffer = [])) // clear the buffer
       )
-      // Buffer incoming patches until all of our local patches are returned
-      this.incomingPatches$ = props.incomingPatches$.pipe(processReturnedPatches).pipe(
-        bufferUntil(() => !this.state.hasPendingLocalPatches),
-        concatMap((incoming) => {
-          // if (this.state.currentValue !== this.props.value) {
-          //   debug('Updating value reference from props')
-          //   this.setState({currentValue: this.props.value})
-          // }
-          return incoming
-        })
-      )
-    }
-    // if (this.incomingPatches$) {
-    //   this.incomingPatches$.subscribe((next) => {
-    //     if (this.state.currentValue !== this.props.value) {
-    //       debug('Updating value reference from props')
-    //       this.setState({currentValue: this.props.value})
-    //     }
-    //   })
-    // }
-    this.maxBlocks =
-      typeof props.maxBlocks === 'undefined'
-        ? undefined
-        : parseInt(props.maxBlocks.toString(), 10) || undefined
-    this.readOnly = props.readOnly || false
-    this.state = state
-    this.slateInstance = withPortableText(createEditor(), {
-      change$: this.change$,
-      incomingPatches$: this.incomingPatches$,
-      keyGenerator: this.keyGenerator,
-      maxBlocks: this.maxBlocks,
-      portableTextFeatures: this.portableTextFeatures,
-      readOnly: this.readOnly,
     })
-  }
-
-  componentWillUnmount() {
-    this.flush()
-    this.changeSubscription.unsubscribe()
-  }
-
-  componentDidUpdate(prevProps: PortableTextEditorProps, prevState: State) {
-    if (this.props.readOnly !== prevProps.readOnly) {
-      this.readOnly = this.props.readOnly || false
-      this.slateInstance.readOnly = this.readOnly
-    }
-    if (this.props.maxBlocks !== prevProps.maxBlocks) {
-      this.maxBlocks =
-        typeof this.props.maxBlocks === 'undefined'
-          ? undefined
-          : parseInt(this.props.maxBlocks.toString(), 10) || undefined
-      this.slateInstance.maxBlocks = this.maxBlocks
-    }
-
-    // if (!this.props.incomingPatches$) {
-    if (!this.props.incomingPatches$ || !this.state.hasPendingLocalPatches) {
-      if (this.state.currentValue !== this.props.value && !prevState.currentValue) {
-        debug('Updating value reference from props')
-        this.setState({currentValue: this.props.value})
-      }
-    }
-    // if (this.state.adjustedSelection && !this.state.hasPendingLocalPatches) {
-    //   const adjusted = this.state.adjustedSelection
-    //   // Set the adjusted selection after the next re-render when we know we have the new value applied.
-    //   this.setState(
-    //     () => ({adjustedSelection: null, selection: {...adjusted, adjusted: false}}),
-    //     () => this.editable?.select(adjusted)
-    //   )
-    // }
-    // Validate again if value length has changed
-    if (this.props.value && (prevProps.value || []).length !== this.props.value.length) {
-      debug('Validating')
-      const validation = validateValue(
-        this.props.value,
-        this.portableTextFeatures,
-        this.keyGenerator
-      )
-      if (this.props.value && !validation.valid && !prevState.invalidValueResolution) {
-        this.change$.next({
-          type: 'invalidValue',
-          resolution: validation.resolution,
-          value: this.props.value,
-        })
-        this.setState({invalidValueResolution: validation.resolution})
-      }
-    }
-  }
-
-  public setEditable = (editable: EditableAPI) => {
-    this.editable = {...this.editable, ...editable}
-    this.change$.next({type: 'value', value: this.state.currentValue})
-    this.change$.next({type: 'ready'})
-  }
-  private flush = () => {
-    const {onChange} = this.props
-    const finalPatches = [...this.pendingPatches]
-    if (finalPatches.length > 0) {
-      debug('Flushing', finalPatches)
-      finalPatches.forEach((p) => {
-        this.returnedPatches.push(p)
-      })
-      onChange({type: 'mutation', patches: finalPatches})
-      this.pendingPatches = []
-    }
-  }
-  private flushDebounced = debounce(this.flush, FLUSH_PATCHES_DEBOUNCE_MS, {
-    leading: false,
-    trailing: true,
-  })
-
-  private onEditorChange = (next: EditorChange): void => {
-    const {onChange} = this.props
-    switch (next.type) {
-      case 'patch':
-        this.pendingPatches.push(next.patch)
-        this.setState({hasPendingLocalPatches: true}, () => this.flushDebounced())
-        break
-      case 'selection':
-        onChange(next)
-        if (next.adjusted) {
-          this.setState({adjustedSelection: next.selection})
-        } else if (!this.state.adjustedSelection) {
-          this.setState({selection: next.selection})
-        }
-        break
-      default:
-        onChange(next)
-    }
-  }
-
-  render() {
-    if (this.state.invalidValueResolution) {
-      return this.state.invalidValueResolution.description
-    }
-    return (
-      <PortableTextEditorContext.Provider value={this}>
-        <PortableTextEditorValueContext.Provider value={this.state.currentValue}>
-          <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
-            {this.props.children}
-          </PortableTextEditorSelectionContext.Provider>
-        </PortableTextEditorValueContext.Provider>
-      </PortableTextEditorContext.Provider>
-    )
-  }
 }

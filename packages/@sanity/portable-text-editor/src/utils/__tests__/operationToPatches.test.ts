@@ -15,6 +15,7 @@ const editor = withPortableText(createEditor(), {
   keyGenerator,
   change$: new Subject(),
   readOnly: false,
+  syncValue: () => undefined,
 })
 
 const createDefaultValue = () =>

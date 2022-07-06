@@ -19,7 +19,7 @@ export function App() {
       }>(),
     []
   )
-  const [value, setValue] = useState<PortableTextBlock[] | undefined>(undefined)
+  const [value, setValue] = useState<PortableTextBlock[] | undefined | null>(null)
   const [revId, setRevId] = useState<string | undefined>(undefined)
   const [selection, setSelection] = useState<EditorSelection | null>(null)
   const {editorId, testId} = useMemo(() => {
@@ -76,27 +76,30 @@ export function App() {
     },
     [editorId, testId, webSocket]
   )
-
   return (
-    <ThemeProvider theme={studioTheme}>
-      <Stack>
-        <Card padding={[3, 4, 5, 6]} sizing="border">
-          <Box marginBottom={5}>
-            <Editor
-              editorId={editorId}
-              value={value}
-              selection={selection}
-              onMutation={handleMutation}
-              incomingPatches$={incomingPatches$}
-            />
-          </Box>
-        </Card>
-      </Stack>
-      <Stack>
-        <Card padding={[3, 4, 5, 6]} sizing="border">
-          <Value value={value} revId={revId} />
-        </Card>
-      </Stack>
-    </ThemeProvider>
+    value !== null &&
+    ((
+      <ThemeProvider theme={studioTheme}>
+        <Stack>
+          <Card padding={[3, 4, 5, 6]} sizing="border">
+            <Box marginBottom={5}>
+              <Editor
+                editorId={editorId}
+                value={value}
+                selection={selection}
+                onMutation={handleMutation}
+                incomingPatches$={incomingPatches$}
+              />
+            </Box>
+          </Card>
+        </Stack>
+        <Stack>
+          <Card padding={[3, 4, 5, 6]} sizing="border">
+            <Value value={value} revId={revId} />
+          </Card>
+        </Stack>
+      </ThemeProvider>
+    ) ||
+      null)
   )
 }

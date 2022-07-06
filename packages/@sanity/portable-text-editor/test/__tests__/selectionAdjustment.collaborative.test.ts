@@ -352,9 +352,9 @@ describe('selection adjustment', () => {
         markDefs: [],
         style: 'normal',
         children: [
-          {_key: 'anotherKey1', _type: 'span', text: 'One ', marks: []},
-          {_key: 'anotherKey2', _type: 'span', text: 'Two', marks: ['strong']},
-          {_key: 'anotherKey3', _type: 'span', text: ' Three', marks: []},
+          {_key: 'anotherKey1', _type: 'span', text: '1 ', marks: []},
+          {_key: 'anotherKey2', _type: 'span', text: '22', marks: ['strong']},
+          {_key: 'anotherKey3', _type: 'span', text: ' 333', marks: []},
         ],
       },
     ])
@@ -367,7 +367,7 @@ describe('selection adjustment', () => {
     expect(await editorA.getSelection()).toEqual(expectedSelectionA)
     const expectedSelectionB = {
       anchor: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey2'}], offset: 0},
-      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey2'}], offset: 3},
+      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey2'}], offset: 2},
     }
     await editorB.setSelection(expectedSelectionB)
     expect(await editorB.getSelection()).toEqual(expectedSelectionB)
@@ -383,7 +383,7 @@ describe('selection adjustment', () => {
               "_key": "anotherKey1",
               "_type": "span",
               "marks": Array [],
-              "text": "One Two Three",
+              "text": "1 22 333",
             },
           ],
           "markDefs": Array [],
@@ -394,8 +394,8 @@ describe('selection adjustment', () => {
     const valueA = await editorA.getValue()
     expect(valueA).toEqual(valueB)
     expect(await editorA.getSelection()).toEqual({
-      anchor: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 8},
-      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 8},
+      anchor: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 5},
+      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 5},
     })
   })
 })
