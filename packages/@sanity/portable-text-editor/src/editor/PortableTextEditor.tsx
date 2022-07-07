@@ -3,8 +3,9 @@ import {ArraySchemaType, Path} from '@sanity/types'
 import {Subscription, Subject, defer, of, EMPTY, Observable, OperatorFunction} from 'rxjs'
 import {concatMap, share, switchMap, tap} from 'rxjs/operators'
 import {randomKey} from '@sanity/util/content'
-import {createEditor} from 'slate'
+import {createEditor, Descendant} from 'slate'
 import {debounce, isEqual, throttle} from 'lodash'
+import {Slate} from '@sanity/slate-react'
 import {compileType} from '../utils/schema'
 import {getPortableTextFeatures} from '../utils/getPortableTextFeatures'
 import {PortableTextBlock, PortableTextFeatures, PortableTextChild} from '../types/portableText'
@@ -33,6 +34,7 @@ import {withPortableText} from './withPortableText'
 export const FLUSH_PATCHES_DEBOUNCE_MS = 1000
 
 export const defaultKeyGenerator = () => randomKey(12)
+const NOOP = () => undefined
 
 const debug = debugWithName('component:PortableTextEditor')
 
@@ -50,6 +52,7 @@ type State = {
   invalidValueResolution: InvalidValueResolution | null
   selection: EditorSelection | null
   currentValue: PortableTextBlock[] | undefined
+  initialValue: Descendant[]
 }
 export class PortableTextEditor extends React.Component<PortableTextEditorProps, State> {
   public change$: EditorChanges = new Subject()
@@ -175,6 +178,15 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       readOnly: this.readOnly,
       syncValue: this.syncValue,
     })
+
+    this.state = {
+      ...this.state,
+      initialValue: toSlateValue(
+        getValueOrInitialValue(props.value, [this.slateInstance.createPlaceholderBlock()]),
+        {portableTextFeatures: this.portableTextFeatures},
+        KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
+      ),
+    }
     KEY_TO_VALUE_ELEMENT.set(this.slateInstance, {})
     KEY_TO_SLATE_ELEMENT.set(this.slateInstance, {})
   }
@@ -218,11 +230,14 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     if (this.state.invalidValueResolution) {
       return this.state.invalidValueResolution.description
     }
+
     return (
       <PortableTextEditorContext.Provider value={this}>
         <PortableTextEditorValueContext.Provider value={this.state.currentValue || undefined}>
           <PortableTextEditorSelectionContext.Provider value={this.state.selection}>
-            {this.props.children}
+            <Slate onChange={NOOP} editor={this.slateInstance} value={this.state.initialValue}>
+              {this.props.children}
+            </Slate>
           </PortableTextEditorSelectionContext.Provider>
         </PortableTextEditorValueContext.Provider>
       </PortableTextEditorContext.Provider>
@@ -476,4 +491,11 @@ function bufferUntil<T>(emitWhen: (currentBuffer: T[]) => boolean): OperatorFunc
         tap(() => (buffer = [])) // clear the buffer
       )
     })
+}
+
+function getValueOrInitialValue(value: unknown, initialValue: PortableTextBlock[]) {
+  if (value && Array.isArray(value) && value.length > 0) {
+    return value
+  }
+  return initialValue
 }

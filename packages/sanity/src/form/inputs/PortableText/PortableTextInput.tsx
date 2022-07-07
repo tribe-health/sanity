@@ -130,15 +130,13 @@ export function PortableTextInput(props: PortableTextInputProps) {
     if (editorRef.current) {
       const prevSel = PortableTextEditor.getSelection(editorRef.current)
       setIsFullscreen((v) => !v)
-      editorRef.current.syncValue(() => {
-        setTimeout(() => {
-          if (editorRef.current) {
-            PortableTextEditor.focus(editorRef.current)
-            if (prevSel) {
-              PortableTextEditor.select(editorRef.current, {...prevSel})
-            }
+      setTimeout(() => {
+        if (editorRef.current) {
+          PortableTextEditor.focus(editorRef.current)
+          if (prevSel) {
+            PortableTextEditor.select(editorRef.current, {...prevSel})
           }
-        })
+        }
       })
     }
   }, [])

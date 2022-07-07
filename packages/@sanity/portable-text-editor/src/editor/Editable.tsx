@@ -1,7 +1,7 @@
 import {BaseRange, Transforms} from 'slate'
 import {isEqual} from 'lodash'
 import React, {useCallback, useMemo, useEffect, forwardRef} from 'react'
-import {Editable as SlateEditable, Slate, ReactEditor, withReact} from '@sanity/slate-react'
+import {Editable as SlateEditable, ReactEditor, withReact} from '@sanity/slate-react'
 import {
   EditorSelection,
   OnBeforeInputFn,
@@ -15,13 +15,11 @@ import {
   RenderDecoratorFunction,
   ScrollSelectionIntoViewFunction,
 } from '../types/editor'
-import {PortableTextBlock} from '../types/portableText'
 import {HotkeyOptions} from '../types/options'
 import {isEqualToEmptyEditor, toSlateValue} from '../utils/values'
 import {normalizeSelection} from '../utils/selection'
 import {toPortableTextRange, toSlateRange} from '../utils/ranges'
 import {debugWithName} from '../utils/debug'
-import {KEY_TO_SLATE_ELEMENT} from '../utils/weakMaps'
 import {Leaf} from './Leaf'
 import {Element} from './Element'
 import {usePortableTextEditor} from './hooks/usePortableTextEditor'
@@ -102,22 +100,9 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
 
   const {change$, keyGenerator, portableTextFeatures, readOnly} = portableTextEditor
 
-  const blockType = portableTextFeatures.types.block
-
   const isEmpty = useMemo(
     () => !value || isEqualToEmptyEditor(slateEditor.children, portableTextFeatures),
     [portableTextFeatures, slateEditor.children, value]
-  )
-
-  const initialValue = useMemo(
-    () =>
-      toSlateValue(
-        getValueOrInitialValue(value, [slateEditor.createPlaceholderBlock()]),
-        portableTextEditor,
-        KEY_TO_SLATE_ELEMENT.get(slateEditor)
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slateEditor, blockType.name] // Note that 'value' is deliberately left out here.
   )
 
   // React/UI-spesific plugins
@@ -354,33 +339,29 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   // The editor
   const slateEditable = useMemo(
     () => (
-      <Slate onChange={NOOP} editor={slateEditor} value={initialValue}>
-        <SlateEditable
-          autoFocus={false}
-          className="pt-editable"
-          decorate={decorate}
-          onBlur={handleOnBlur}
-          onCopy={handleCopy}
-          onDOMBeforeInput={handleOnBeforeInput}
-          onFocus={handleOnFocus}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          readOnly={readOnly}
-          renderElement={renderElement}
-          renderLeaf={renderLeaf}
-          scrollSelectionIntoView={scrollSelectionIntoViewToSlate}
-        />
-      </Slate>
+      <SlateEditable
+        autoFocus={false}
+        className="pt-editable"
+        decorate={decorate}
+        onBlur={handleOnBlur}
+        onCopy={handleCopy}
+        onDOMBeforeInput={handleOnBeforeInput}
+        onFocus={handleOnFocus}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        readOnly={readOnly}
+        renderElement={renderElement}
+        renderLeaf={renderLeaf}
+        scrollSelectionIntoView={scrollSelectionIntoViewToSlate}
+      />
     ),
     [
-      slateEditor,
-      initialValue,
       decorate,
-      handleOnBlur,
       handleCopy,
-      handleOnBeforeInput,
-      handleOnFocus,
       handleKeyDown,
+      handleOnBeforeInput,
+      handleOnBlur,
+      handleOnFocus,
       handlePaste,
       readOnly,
       renderElement,
@@ -397,10 +378,3 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
     </div>
   )
 })
-
-function getValueOrInitialValue(value: unknown, initialValue: PortableTextBlock[]) {
-  if (value && Array.isArray(value) && value.length > 0) {
-    return value
-  }
-  return initialValue
-}

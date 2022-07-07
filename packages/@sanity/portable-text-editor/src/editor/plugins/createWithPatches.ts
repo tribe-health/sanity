@@ -121,7 +121,12 @@ export function createWithPatches(
                 withoutPatching(editor, () => {
                   withoutSaving(editor, () => {
                     withPreserveKeys(editor, () => {
-                      patchToOperations(editor, patch, patches, snapshot, previousSnapshot)
+                      try {
+                        patchToOperations(editor, patch, patches, snapshot, previousSnapshot)
+                      } catch (err) {
+                        debug('Got error trying to create operations from patch')
+                        console.error(err)
+                      }
                     })
                   })
                 })
