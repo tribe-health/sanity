@@ -24,6 +24,7 @@ import {PATCHING, isPatching, withoutPatching} from '../../utils/withoutPatching
 import {KEY_TO_VALUE_ELEMENT} from '../../utils/weakMaps'
 import {createPatchToOperations} from '../../utils/patchToOperations'
 import {keyGenerator} from '../..'
+import {withPreserveKeys} from '../../utils/withPreserveKeys'
 import {withoutSaving} from './createWithUndoRedo'
 
 const debug = debugWithName('plugin:withPatches')
@@ -119,7 +120,9 @@ export function createWithPatches(
                 debug(`Handling remote patch ${JSON.stringify(patch)}`)
                 withoutPatching(editor, () => {
                   withoutSaving(editor, () => {
-                    patchToOperations(editor, patch, patches, snapshot, previousSnapshot)
+                    withPreserveKeys(editor, () => {
+                      patchToOperations(editor, patch, patches, snapshot, previousSnapshot)
+                    })
                   })
                 })
               })
@@ -133,6 +136,7 @@ export function createWithPatches(
           if (patches.some((p) => p.origin === 'local')) {
             syncValue()
           }
+          editor.onChange()
         })
       }
 

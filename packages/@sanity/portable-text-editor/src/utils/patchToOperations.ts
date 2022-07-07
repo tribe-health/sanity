@@ -50,20 +50,28 @@ export function createPatchToOperations(
     const parsed = dmp.patch_fromText(patch.value)[0]
     if (parsed) {
       const slatePath = [blockIndex, childIndex]
-      const point = {path: slatePath, offset: (parsed.start1 || 0) + parsed.length1}
+      const distance = parsed.length2 - parsed.length1
+      const point = {
+        path: slatePath,
+        offset:
+          distance >= 0
+            ? (parsed.start1 || 0) + parsed.diffs[0][1].length
+            : (parsed.start2 || 0) + parsed.length2 - distance,
+      }
       debug(
-        `DiffMatchPatch at ${JSON.stringify(slatePath)}}`,
-        JSON.stringify(point),
-        JSON.stringify(parsed)
+        `DiffMatchPatch (${distance < 0 ? 'remove' : 'insert'}) at ${JSON.stringify(slatePath)}}: `,
+        JSON.stringify(point, null, 2),
+        JSON.stringify(parsed, null, 2)
       )
       debugState(editor, 'before')
-      const distance = parsed.length2 - parsed.length1
+
       let text
       if (parsed.diffs[1]) {
         text = parsed.diffs[1][1]
       } else {
         text = parsed.diffs[0][1]
       }
+      debug(`Text: '${text}'`)
       if (distance >= 0) {
         editor.apply({
           type: 'insert_text',
@@ -101,6 +109,7 @@ export function createPatchToOperations(
       debug(`Inserting blocks at path [${normalizedIdx}]`)
       debugState(editor, 'before')
       const isEmpty = isEqualToEmptyEditor(editor.children, portableTextFeatures)
+      debug('isEmpty', isEmpty)
       if (isEmpty) {
         debug('Removing placeholder block')
         Transforms.removeNodes(editor, {at: [0]})

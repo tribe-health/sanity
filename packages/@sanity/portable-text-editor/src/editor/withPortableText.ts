@@ -36,9 +36,12 @@ export const withPortableText = <T extends Editor>(
   const withMaxBlocks = createWithMaxBlocks()
   const withPortableTextLists = createWithPortableTextLists(portableTextFeatures)
   const [withUndoRedo, withUndoRedoCleanupFunction] = createWithUndoRedo(incomingPatches$)
-  const withPortableTextMarkModel = createWithPortableTextMarkModel(portableTextFeatures)
+  const withPortableTextMarkModel = createWithPortableTextMarkModel(
+    portableTextFeatures,
+    keyGenerator
+  )
   const withPortableTextBlockStyle = createWithPortableTextBlockStyle(portableTextFeatures, change$)
-  const withUtils = createWithUtils() // TODO: remove?
+  const withUtils = createWithUtils({keyGenerator, portableTextFeatures})
   const withPortableTextSelections = createWithPortableTextSelections(change$, portableTextFeatures)
   e.destroy = () => {
     withPatchesCleanupFunction()

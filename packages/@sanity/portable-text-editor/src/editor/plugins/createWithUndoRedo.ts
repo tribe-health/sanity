@@ -135,7 +135,7 @@ export function createWithUndoRedo(
           const step = undos[undos.length - 1]
           debug('Undoing', step)
           if (step.operations.length > 0) {
-            const otherPatches = [...incomingPatches.filter((item) => item.time > step.timestamp)]
+            const otherPatches = [...incomingPatches.filter((item) => item.time >= step.timestamp)]
             let transformedOperations = step.operations
             otherPatches.forEach((item) => {
               transformedOperations = flatten(
@@ -144,7 +144,7 @@ export function createWithUndoRedo(
             })
             withoutSaving(editor, () => {
               Editor.withoutNormalizing(editor, () => {
-                step.operations
+                transformedOperations
                   .map(Operation.inverse)
                   .reverse()
                   .forEach((op) => {
@@ -229,7 +229,7 @@ function transformOperation(editor: Editor, patch: Patch, operation: Operation):
   // Someone reset the whole value
   if (patch.type === 'unset' && patch.path.length === 0) {
     debug(`Adjusting selection for unset everything patch and ${operation.type} operation`)
-    return []
+    return [operation]
   }
 
   if (patch.type === 'diffMatchPatch') {

@@ -77,29 +77,25 @@ export function App() {
     [editorId, testId, webSocket]
   )
   return (
-    value !== null &&
-    ((
-      <ThemeProvider theme={studioTheme}>
-        <Stack>
-          <Card padding={[3, 4, 5, 6]} sizing="border">
-            <Box marginBottom={5}>
-              <Editor
-                editorId={editorId}
-                value={value}
-                selection={selection}
-                onMutation={handleMutation}
-                incomingPatches$={incomingPatches$}
-              />
-            </Box>
-          </Card>
-        </Stack>
-        <Stack>
-          <Card padding={[3, 4, 5, 6]} sizing="border">
-            <Value value={value} revId={revId} />
-          </Card>
-        </Stack>
-      </ThemeProvider>
-    ) ||
-      null)
+    <ThemeProvider theme={studioTheme}>
+      <Stack>
+        <Card padding={[3, 4, 5, 6]} sizing="border">
+          <Box marginBottom={5}>
+            <Editor
+              editorId={editorId}
+              value={value}
+              selection={selection}
+              onMutation={handleMutation}
+              incomingPatches$={incomingPatches$}
+            />
+          </Box>
+        </Card>
+      </Stack>
+      <Stack>
+        <Card padding={[3, 4, 5, 6]} sizing="border">
+          <Value value={value} revId={revId} />
+        </Card>
+      </Stack>
+    </ThemeProvider>
   )
 }

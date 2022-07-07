@@ -22,7 +22,7 @@ import {
 } from '../types/editor'
 import {validateValue} from '../utils/validateValue'
 import {debugWithName} from '../utils/debug'
-import {toSlateValue} from '../utils/values'
+import {isEqualToEmptyEditor, toSlateValue} from '../utils/values'
 import {KEY_TO_SLATE_ELEMENT, KEY_TO_VALUE_ELEMENT} from '../utils/weakMaps'
 import {PortableTextEditorContext} from './hooks/usePortableTextEditor'
 import {PortableTextEditorSelectionContext} from './hooks/usePortableTextEditorSelection'
@@ -47,10 +47,9 @@ export type PortableTextEditorProps = {
 }
 
 type State = {
-  currentValue: PortableTextBlock[] | undefined | null
-  hasPendingLocalPatches: boolean
   invalidValueResolution: InvalidValueResolution | null
-  selection: EditorSelection // This state is only used to force the selection context to update.
+  selection: EditorSelection | null
+  currentValue: PortableTextBlock[] | undefined
 }
 export class PortableTextEditor extends React.Component<PortableTextEditorProps, State> {
   public change$: EditorChanges = new Subject()
@@ -66,12 +65,22 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   private incomingPatches$?: PatchObservable
   private pendingPatches: Patch[] = []
   private returnedPatches: Patch[] = []
+  hasPendingLocalPatches: React.MutableRefObject<boolean | null>
 
   constructor(props: PortableTextEditorProps) {
     super(props)
 
     if (!props.type) {
       throw new Error('PortableTextEditor: missing "type" property')
+    }
+
+    this.hasPendingLocalPatches = React.createRef()
+    this.hasPendingLocalPatches.current = false
+
+    this.state = {
+      invalidValueResolution: null,
+      selection: null,
+      currentValue: props.value,
     }
 
     // Test if we have a compiled schema type, if not, conveniently compile it
@@ -84,13 +93,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
     // Setup keyGenerator (either from props, or default)
     this.keyGenerator = props.keyGenerator || defaultKeyGenerator
-
-    let state: State = {
-      invalidValueResolution: null,
-      selection: null,
-      hasPendingLocalPatches: false,
-      currentValue: props.value || null,
-    }
 
     // Setup processed incoming patches stream
     if (props.incomingPatches$) {
@@ -107,13 +109,13 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
             }) => {
               // Reset hasPendingLocalPatches when local patches are returned
               if (patches.some((p) => p.origin === 'local')) {
-                this.setState({hasPendingLocalPatches: false})
+                this.hasPendingLocalPatches.current = false
               }
             }
           )
         )
         .pipe(
-          bufferUntil(() => !this.state.hasPendingLocalPatches),
+          bufferUntil(() => !this.hasPendingLocalPatches.current),
           concatMap((incoming) => {
             return incoming
           }),
@@ -127,7 +129,11 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       switch (next.type) {
         case 'patch':
           this.pendingPatches.push(next.patch)
-          this.setState({hasPendingLocalPatches: true}, () => this.flushDebounced())
+          if (this.props.incomingPatches$) {
+            this.hasPendingLocalPatches.current = true
+          }
+          this.flushDebounced()
+          onChange(next)
           break
         case 'selection':
           onChange(next)
@@ -137,6 +143,13 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
           onChange(next)
       }
     })
+
+    // Set maxBlocks and readOnly
+    this.maxBlocks =
+      typeof props.maxBlocks === 'undefined'
+        ? undefined
+        : parseInt(props.maxBlocks.toString(), 10) || undefined
+    this.readOnly = props.readOnly || false
 
     // Validate the incoming value
     if (props.value) {
@@ -148,17 +161,9 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
           resolution: validation.resolution,
           value: props.value,
         })
-        state = {...state, invalidValueResolution: validation.resolution}
+        this.state = {...this.state, invalidValueResolution: validation.resolution}
       }
     }
-
-    // Create state
-    this.maxBlocks =
-      typeof props.maxBlocks === 'undefined'
-        ? undefined
-        : parseInt(props.maxBlocks.toString(), 10) || undefined
-    this.readOnly = props.readOnly || false
-    this.state = state
 
     // Create the slate instance
     this.slateInstance = withPortableText(createEditor(), {
@@ -194,33 +199,12 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     }
 
     // Update the value if we are not subscribing to patches,
-    // or if we do, then only when the current value is never set before (is null).
-    if (
-      (!this.props.incomingPatches$ && this.state.currentValue !== this.props.value) ||
-      (this.props.incomingPatches$ &&
-        this.state.currentValue === null &&
-        this.props.value &&
-        this.props.value !== prevProps.value)
-    ) {
+    if (!this.props.incomingPatches$ && this.state.currentValue !== this.props.value) {
       this.syncValue()
     }
-
-    // Validate again if value length has changed
-    if (this.props.value && prevProps.value !== this.props.value) {
-      debug('Validating')
-      const validation = validateValue(
-        this.props.value,
-        this.portableTextFeatures,
-        this.keyGenerator
-      )
-      if (!validation.valid) {
-        this.change$.next({
-          type: 'invalidValue',
-          resolution: validation.resolution,
-          value: this.props.value,
-        })
-        this.setState({invalidValueResolution: validation.resolution})
-      }
+    // Initial value sync when subscribing to patches
+    if (this.props.incomingPatches$ && this.state.currentValue === null && this.props.value) {
+      this.syncValue()
     }
   }
 
@@ -246,37 +230,81 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   }
 
   public syncValue: (callbackFn?: () => void) => void = (callbackFn) => {
-    if (this.state.hasPendingLocalPatches) {
+    debug('Syncing value')
+    if (this.hasPendingLocalPatches.current === true) {
       debug('Not syncing value (has pending local patches)')
       retrySync(this.syncValue, callbackFn)
       return
     }
     if (this.state.currentValue !== this.props.value) {
-      debug('Syncing value')
-      const slateValueFromProps = toSlateValue(
-        (this.props.value || []).length > 0
-          ? this.props.value
-          : [
-              {
-                _type: this.portableTextFeatures.types.block.name,
-                _key: this.keyGenerator(),
-                style: this.portableTextFeatures.styles[0].value,
-                markDefs: [],
-                children: [
-                  {
-                    _type: 'span',
-                    _key: this.keyGenerator(),
-                    text: '',
-                    marks: [],
-                  },
-                ],
-              },
-            ],
-        {portableTextFeatures: this.portableTextFeatures},
-        KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
+      let equal = true
+      if (
+        isEqualToEmptyEditor(this.slateInstance.children, this.portableTextFeatures) &&
+        this.props.value
+      ) {
+        this.slateInstance.children = toSlateValue(this.props.value, {
+          portableTextFeatures: this.portableTextFeatures,
+        })
+        this.slateInstance.onChange()
+        this.setState({currentValue: this.props.value}, () => {
+          if (callbackFn) callbackFn()
+          this.change$.next({type: 'value', value: this.props.value})
+        })
+      }
+      const val = this.props.value || []
+      val.forEach((blk, index) => {
+        if (this.slateInstance.isTextBlock(blk)) {
+          const compareBlock = toSlateValue(
+            [blk],
+            {portableTextFeatures: this.portableTextFeatures},
+            KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
+          )[0]
+          if (!isEqual(compareBlock, this.slateInstance.children[index])) {
+            equal = false
+          }
+        } else {
+          const blkVal = this.slateInstance.children[index]
+          if (
+            !blkVal ||
+            (blkVal &&
+              'value' in blkVal &&
+              !isEqual(blk, {_key: blkVal._key, _type: blkVal._type, ...blkVal.value}))
+          ) {
+            equal = false
+          }
+        }
+      })
+      if (equal) {
+        debug('Not syncing value (value is equal)')
+        if (callbackFn) callbackFn()
+        return
+      }
+      debug('Validating')
+      const validation = validateValue(
+        this.props.value,
+        this.portableTextFeatures,
+        this.keyGenerator
       )
+      if (this.props.value && !validation.valid) {
+        this.change$.next({
+          type: 'invalidValue',
+          resolution: validation.resolution,
+          value: this.props.value,
+        })
+        this.setState({invalidValueResolution: validation.resolution})
+      }
+
+      debug('Syncing value')
+      const slateValueFromProps =
+        (this.props.value || []).length > 0
+          ? toSlateValue(
+              this.props.value,
+              {portableTextFeatures: this.portableTextFeatures},
+              KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
+            )
+          : [this.slateInstance.createPlaceholderBlock()]
       if (slateValueFromProps) {
-        const originalChildren = this.slateInstance.children
+        const originalChildren = [...this.slateInstance.children]
         slateValueFromProps.forEach((n, i) => {
           const existing = originalChildren[i]
           if (existing && !isEqual(n, existing)) {
@@ -296,8 +324,18 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         this.slateInstance.children = slateValueFromProps
       }
       this.slateInstance.onChange()
-      this.setState({currentValue: this.props.value}, callbackFn)
+      this.setState({currentValue: this.props.value}, () => {
+        if (callbackFn) callbackFn()
+        this.change$.next({type: 'value', value: this.props.value})
+      })
       return
+    }
+    if (!this.state.currentValue) {
+      this.slateInstance.onChange()
+      this.setState({currentValue: this.props.value}, () => {
+        if (callbackFn) callbackFn()
+        this.change$.next({type: 'value', value: this.props.value})
+      })
     }
     debug('Not syncing value (is up to date)')
     if (callbackFn) callbackFn()

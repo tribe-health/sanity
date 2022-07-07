@@ -1,7 +1,7 @@
 /* eslint-disable tsdoc/syntax */
 import {ArraySchemaType, ObjectSchemaType, Path} from '@sanity/types'
 import {Subject, Observable} from 'rxjs'
-import {Node as SlateNode, Operation as SlateOperation} from 'slate'
+import {Descendant, Node as SlateNode, Operation as SlateOperation} from 'slate'
 import {ReactEditor} from '@sanity/slate-react'
 import type {Patch} from '../types/patch'
 import {Type} from '../types/schema'
@@ -73,6 +73,7 @@ export interface PortableTextSlateEditor extends ReactEditor {
   _key: 'editor'
   _type: 'editor'
   destroy: () => void
+  createPlaceholderBlock: () => Descendant
   editable: EditableAPI
   history: History
   insertPortableTextData: (data: DataTransfer) => boolean

@@ -104,24 +104,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
 
   const blockType = portableTextFeatures.types.block
 
-  const placeHolderBlock = useMemo(
-    () => ({
-      _type: blockType.name,
-      _key: keyGenerator(),
-      style: portableTextFeatures.styles[0].value,
-      markDefs: [],
-      children: [
-        {
-          _type: 'span',
-          _key: keyGenerator(),
-          text: '',
-          marks: [],
-        },
-      ],
-    }),
-    [blockType.name, keyGenerator, portableTextFeatures.styles]
-  )
-
   const isEmpty = useMemo(
     () => !value || isEqualToEmptyEditor(slateEditor.children, portableTextFeatures),
     [portableTextFeatures, slateEditor.children, value]
@@ -130,12 +112,12 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   const initialValue = useMemo(
     () =>
       toSlateValue(
-        getValueOrInitialValue(value, [placeHolderBlock]),
+        getValueOrInitialValue(value, [slateEditor.createPlaceholderBlock()]),
         portableTextEditor,
         KEY_TO_SLATE_ELEMENT.get(slateEditor)
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [placeHolderBlock, slateEditor, blockType.name] // Note that 'value' is deliberately left out here.
+    [slateEditor, blockType.name] // Note that 'value' is deliberately left out here.
   )
 
   // React/UI-spesific plugins

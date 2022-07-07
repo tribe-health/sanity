@@ -398,4 +398,59 @@ describe('selection adjustment', () => {
       focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 5},
     })
   })
+
+  it('will keep A on same word if B merges marks within that line', async () => {
+    await setDocumentValue([
+      {
+        _key: 'someKey',
+        _type: 'block',
+        markDefs: [],
+        style: 'normal',
+        children: [
+          {_key: 'anotherKey1', _type: 'span', text: '1 ', marks: []},
+          {_key: 'anotherKey2', _type: 'span', text: '22', marks: ['strong']},
+          {_key: 'anotherKey3', _type: 'span', text: ' 333', marks: []},
+        ],
+      },
+    ])
+    const expectedSelectionA = {
+      anchor: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey3'}], offset: 1},
+      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey3'}], offset: 1},
+    }
+    const [editorA, editorB] = await getEditors()
+    await editorA.setSelection(expectedSelectionA)
+    expect(await editorA.getSelection()).toEqual(expectedSelectionA)
+    const expectedSelectionB = {
+      anchor: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey2'}], offset: 0},
+      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey2'}], offset: 2},
+    }
+    await editorB.setSelection(expectedSelectionB)
+    expect(await editorB.getSelection()).toEqual(expectedSelectionB)
+    await editorB.toggleMark()
+    const valueB = await editorB.getValue()
+    expect(valueB).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "_key": "someKey",
+          "_type": "block",
+          "children": Array [
+            Object {
+              "_key": "anotherKey1",
+              "_type": "span",
+              "marks": Array [],
+              "text": "1 22 333",
+            },
+          ],
+          "markDefs": Array [],
+          "style": "normal",
+        },
+      ]
+    `)
+    const valueA = await editorA.getValue()
+    expect(valueA).toEqual(valueB)
+    expect(await editorA.getSelection()).toEqual({
+      anchor: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 5},
+      focus: {path: [{_key: 'someKey'}, 'children', {_key: 'anotherKey1'}], offset: 5},
+    })
+  })
 })

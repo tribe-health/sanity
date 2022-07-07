@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import React, {useCallback, useMemo, useRef, useState} from 'react'
-import {Text, Box, Card, Code} from '@sanity/ui'
+import {Text, Box, Card, Code, Stack} from '@sanity/ui'
 import styled from 'styled-components'
 import {Subject} from 'rxjs'
 import {
@@ -146,6 +146,21 @@ export const Editor = ({
     [onMutation]
   )
 
+  const editable = useMemo(
+    () => (
+      <PortableTextEditable
+        renderPlaceholder={renderPlaceholder}
+        hotkeys={HOTKEYS}
+        renderBlock={renderBlock}
+        renderDecorator={renderDecorator}
+        renderChild={renderChild}
+        selection={selection}
+        spellCheck
+      />
+    ),
+    [renderBlock, renderChild, renderDecorator, selection]
+  )
+
   if (!editorId) {
     return null
   }
@@ -155,21 +170,13 @@ export const Editor = ({
       ref={editor}
       type={portableTextType}
       onChange={handleChange}
+      incomingPatches$={incomingPatches$}
       value={value}
       keyGenerator={keyGenFn}
       readOnly={false}
-      incomingPatches$={incomingPatches$}
     >
       <Box padding={4} style={{outline: '1px solid #999'}}>
-        <PortableTextEditable
-          renderPlaceholder={renderPlaceholder}
-          hotkeys={HOTKEYS}
-          renderBlock={renderBlock}
-          renderDecorator={renderDecorator}
-          renderChild={renderChild}
-          selection={selection}
-          spellCheck
-        />
+        {editable}
       </Box>
       <Box padding={4} style={{outline: '1px solid #999'}}>
         <Code
@@ -182,6 +189,19 @@ export const Editor = ({
           {selectionString}
         </Code>
       </Box>
+      {editor.current && (
+        <Box padding={4} style={{outline: '1px solid #999'}}>
+          <Code
+            as="code"
+            size={0}
+            language="json"
+            id="pte-slate-children"
+            data-children={JSON.stringify(editor.current.slateInstance.children)}
+          >
+            {JSON.stringify(editor.current.slateInstance.children)}
+          </Code>
+        </Box>
+      )}
     </PortableTextEditor>
   )
 }

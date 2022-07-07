@@ -4,7 +4,7 @@ import {PortableTextFeatures} from '../../types/portableText'
 import {debugWithName} from '../../utils/debug'
 import {toPortableTextRange} from '../../utils/ranges'
 import {fromSlateValue} from '../../utils/values'
-import {SLATE_TO_PORTABLE_TEXT_RANGE} from '../../utils/weakMaps'
+import {KEY_TO_VALUE_ELEMENT, SLATE_TO_PORTABLE_TEXT_RANGE} from '../../utils/weakMaps'
 
 const debug = debugWithName('plugin:withPortableTextSelections')
 
@@ -24,16 +24,20 @@ export function createWithPortableTextSelections(
           ptRange = existing
         } else {
           ptRange = toPortableTextRange(
-            fromSlateValue(editor.children, portableTextFeatures.types.block.name),
+            fromSlateValue(
+              editor.children,
+              portableTextFeatures.types.block.name,
+              KEY_TO_VALUE_ELEMENT.get(editor)
+            ),
             editor.selection,
             portableTextFeatures
           )
+          SLATE_TO_PORTABLE_TEXT_RANGE.set(editor.selection, ptRange)
         }
-        SLATE_TO_PORTABLE_TEXT_RANGE.set(editor.selection, ptRange)
       }
       if (ptRange) {
         debug(`Emitting selection ${JSON.stringify(ptRange)}`)
-        change$.next({type: 'selection', selection: {...ptRange}})
+        change$.next({type: 'selection', selection: ptRange})
       } else {
         change$.next({type: 'selection', selection: null})
       }
