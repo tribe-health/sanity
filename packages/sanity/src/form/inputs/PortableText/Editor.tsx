@@ -105,6 +105,7 @@ export function Editor(props: EditorProps) {
         onCopy={onCopy}
         onPaste={onPaste}
         ref={editableRef}
+        readOnly={readOnly}
         renderAnnotation={renderAnnotation}
         renderBlock={renderBlock}
         renderChild={renderChild}
@@ -120,6 +121,7 @@ export function Editor(props: EditorProps) {
       initialSelection,
       onCopy,
       onPaste,
+      readOnly,
       renderAnnotation,
       renderBlock,
       renderChild,

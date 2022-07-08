@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useMemo, useCallback} from 'react'
+import React, {useState, useMemo, useCallback} from 'react'
 import {
   EditorSelection,
   OnCopyFn,
@@ -38,7 +38,9 @@ import {_isBlockType} from './_helpers'
 interface InputProps extends ArrayOfObjectsInputProps<PortableTextBlock> {
   hasFocus: boolean
   hotkeys?: HotkeyOptions
+  isActive: boolean
   isFullscreen: boolean
+  onActivate: () => void
   onCopy?: OnCopyFn
   onPaste?: OnPasteFn
   onToggleFullscreen: () => void
@@ -67,9 +69,11 @@ export function Compositor(props: InputProps) {
     focused,
     hasFocus,
     hotkeys,
+    isActive,
     isFullscreen,
     onChange,
     onCopy,
+    onActivate,
     onOpenItem,
     onCloseItem,
     onPaste,
@@ -84,7 +88,6 @@ export function Compositor(props: InputProps) {
 
   const editor = usePortableTextEditor()
 
-  const [isActive, setIsActive] = useState(false)
   const [wrapperElement, setWrapperElement] = useState<HTMLDivElement | null>(null)
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
   const portableTextMemberItems = usePortableTextMemberItems()
@@ -98,13 +101,6 @@ export function Compositor(props: InputProps) {
     scrollElement,
     onCloseItem,
   })
-
-  // Set as active whenever we have focus inside the editor.
-  useEffect(() => {
-    if (hasFocus) {
-      setIsActive(true)
-    }
-  }, [hasFocus])
 
   const handleToggleFullscreen = useCallback(() => {
     PortableTextEditor.blur(editor)
@@ -125,17 +121,6 @@ export function Compositor(props: InputProps) {
   )
 
   const editorHotkeys = useHotkeys(hotkeysWithFullscreenToggle)
-
-  const focus = useCallback((): void => {
-    PortableTextEditor.focus(editor)
-  }, [editor])
-
-  const handleActivate = useCallback((): void => {
-    if (!isActive) {
-      setIsActive(true)
-      focus()
-    }
-  }, [focus, isActive])
 
   const ptFeatures = useMemo(() => PortableTextEditor.getPortableTextFeatures(editor), [editor])
   const hasContent = !!value
@@ -271,7 +256,7 @@ export function Compositor(props: InputProps) {
         onPaste={onPaste}
         onToggleFullscreen={handleToggleFullscreen}
         path={path}
-        readOnly={isActive === false || readOnly}
+        readOnly={readOnly}
         renderAnnotation={renderAnnotation}
         renderBlock={renderBlock}
         renderChild={renderChild}
@@ -286,7 +271,6 @@ export function Compositor(props: InputProps) {
       editorHotkeys,
       handleToggleFullscreen,
       initialSelection,
-      isActive,
       isFullscreen,
       onCopy,
       onOpenItem,
@@ -351,7 +335,7 @@ export function Compositor(props: InputProps) {
     <PortalProvider __unstable_elements={portalElements}>
       <ActivateOnFocus
         message={ACTIVATE_ON_FOCUS_MESSAGE}
-        onActivate={handleActivate}
+        onActivate={onActivate}
         isOverlayActive={!isActive}
       >
         <ChangeIndicator

@@ -91,7 +91,7 @@ export function PortableTextInput(props: PortableTextInputProps) {
     onInsert,
     onPaste,
     path,
-    readOnly,
+    readOnly: readOnlyFromProps,
     renderBlockActions,
     renderCustomMarkers,
     schemaType: type,
@@ -113,6 +113,12 @@ export function PortableTextInput(props: PortableTextInputProps) {
   const [ignoreValidationError, setIgnoreValidationError] = useState(false)
   const [invalidValue, setInvalidValue] = useState<InvalidValue | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isActive, setIsActive] = useState(false)
+
+  const readOnly = useMemo(() => {
+    return isActive ? Boolean(readOnlyFromProps) : true
+  }, [isActive, readOnlyFromProps])
+
   const toast = useToast()
   const portableTextMemberItemsRef: React.MutableRefObject<PortableTextMemberItem[]> = useRef([])
 
@@ -323,6 +329,19 @@ export function PortableTextInput(props: PortableTextInputProps) {
     }
   }, [focusPath])
 
+  const focus = useCallback((): void => {
+    if (editorRef.current) {
+      PortableTextEditor.focus(editorRef.current)
+    }
+  }, [editorRef])
+
+  const handleActivate = useCallback((): void => {
+    if (!isActive) {
+      setIsActive(true)
+      focus()
+    }
+  }, [focus, isActive])
+
   return (
     <Box ref={innerElementRef}>
       {!readOnly && (
@@ -350,12 +369,15 @@ export function PortableTextInput(props: PortableTextInputProps) {
                 focusPath={focusPath}
                 hasFocus={hasFocus}
                 hotkeys={hotkeys}
+                isActive={isActive}
                 isFullscreen={isFullscreen}
+                onActivate={handleActivate}
                 onChange={onChange}
                 onCopy={onCopy}
                 onInsert={onInsert}
                 onPaste={onPaste}
                 onToggleFullscreen={handleToggleFullscreen}
+                readOnly={readOnly}
                 renderBlockActions={renderBlockActions}
                 renderCustomMarkers={renderCustomMarkers}
                 value={value}

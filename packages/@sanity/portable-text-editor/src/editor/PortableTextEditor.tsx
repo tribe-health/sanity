@@ -153,7 +153,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       typeof props.maxBlocks === 'undefined'
         ? undefined
         : parseInt(props.maxBlocks.toString(), 10) || undefined
-    this.readOnly = props.readOnly || false
+    this.readOnly = Boolean(props.readOnly) || false
     // Validate the incoming value
     if (props.value) {
       const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
@@ -199,8 +199,8 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
   componentDidUpdate(prevProps: PortableTextEditorProps) {
     if (this.props.readOnly !== prevProps.readOnly) {
-      this.readOnly = this.props.readOnly || false
-      this.slateInstance.readOnly = this.readOnly
+      this.readOnly = !!this.props.readOnly
+      this.slateInstance.readOnly = !!this.props.readOnly
     }
     if (this.props.maxBlocks !== prevProps.maxBlocks) {
       this.maxBlocks =
