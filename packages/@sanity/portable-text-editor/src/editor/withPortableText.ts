@@ -26,16 +26,20 @@ export const withPortableText = <T extends Editor>(
   const operationToPatches = createOperationToPatches(portableTextFeatures)
   const withObjectKeys = createWithObjectKeys(portableTextFeatures, keyGenerator)
   const withSchemaTypes = createWithSchemaTypes(portableTextFeatures)
-  const [withPatches, withPatchesCleanupFunction] = createWithPatches(
-    operationToPatches,
-    change$,
-    portableTextFeatures,
-    syncValue,
-    incomingPatches$
-  )
+  const [withPatches, withPatchesCleanupFunction] = options.readOnly
+    ? []
+    : createWithPatches(
+        operationToPatches,
+        change$,
+        portableTextFeatures,
+        syncValue,
+        incomingPatches$
+      )
   const withMaxBlocks = createWithMaxBlocks()
   const withPortableTextLists = createWithPortableTextLists(portableTextFeatures)
-  const [withUndoRedo, withUndoRedoCleanupFunction] = createWithUndoRedo(incomingPatches$)
+  const [withUndoRedo, withUndoRedoCleanupFunction] = options.readOnly
+    ? []
+    : createWithUndoRedo(incomingPatches$)
   const withPortableTextMarkModel = createWithPortableTextMarkModel(
     portableTextFeatures,
     keyGenerator
@@ -44,19 +48,33 @@ export const withPortableText = <T extends Editor>(
   const withUtils = createWithUtils({keyGenerator, portableTextFeatures})
   const withPortableTextSelections = createWithPortableTextSelections(change$, portableTextFeatures)
   e.destroy = () => {
-    withPatchesCleanupFunction()
-    withUndoRedoCleanupFunction()
+    if (withPatchesCleanupFunction) {
+      withPatchesCleanupFunction()
+    }
+    if (withUndoRedoCleanupFunction) {
+      withUndoRedoCleanupFunction()
+    }
   }
-  // Ordering is important here, selection dealing last, data manipulation in the middle and core model stuff first.
-  return withSchemaTypes(
+  const minimal = withSchemaTypes(
     withObjectKeys(
-      withPortableTextMarkModel(
-        withPortableTextBlockStyle(
-          withPortableTextLists(
-            withUtils(withMaxBlocks(withUndoRedo(withPatches(withPortableTextSelections(e)))))
-          )
-        )
-      )
+      withPortableTextMarkModel(withPortableTextBlockStyle(withUtils(withPortableTextLists(e))))
     )
   )
+  const full =
+    (withUndoRedo &&
+      withPatches &&
+      withSchemaTypes(
+        withObjectKeys(
+          withPortableTextMarkModel(
+            withPortableTextBlockStyle(
+              withPortableTextLists(
+                withUtils(withMaxBlocks(withUndoRedo(withPatches(withPortableTextSelections(e)))))
+              )
+            )
+          )
+        )
+      )) ||
+    e
+  // Ordering is important here, selection dealing last, data manipulation in the middle and core model stuff first.
+  return options.readOnly ? minimal : full
 }

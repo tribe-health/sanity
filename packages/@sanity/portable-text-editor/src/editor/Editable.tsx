@@ -366,7 +366,6 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       />
     ),
     [
-      readOnly,
       decorate,
       handleCopy,
       handleKeyDown,
@@ -374,6 +373,7 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       handleOnBlur,
       handleOnFocus,
       handlePaste,
+      readOnly,
       renderElement,
       renderLeaf,
       scrollSelectionIntoViewToSlate,

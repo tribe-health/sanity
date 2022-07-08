@@ -140,15 +140,17 @@ export function Editor(props: EditorProps) {
 
   return (
     <Root $fullscreen={isFullscreen} data-testid="pt-editor" onMouseDown={handleMouseDown}>
-      <ToolbarCard data-testid="pt-editor__toolbar-card" shadow={1}>
-        <Toolbar
-          isFullscreen={isFullscreen}
-          hotkeys={hotkeys}
-          onExpand={handleToolBarOnExpand}
-          readOnly={readOnly}
-          onToggleFullscreen={onToggleFullscreen}
-        />
-      </ToolbarCard>
+      {!readOnly && (
+        <ToolbarCard data-testid="pt-editor__toolbar-card" shadow={1}>
+          <Toolbar
+            isFullscreen={isFullscreen}
+            hotkeys={hotkeys}
+            onExpand={handleToolBarOnExpand}
+            readOnly={readOnly}
+            onToggleFullscreen={onToggleFullscreen}
+          />
+        </ToolbarCard>
+      )}
 
       <EditableCard flex={1}>
         <Scroller ref={setScrollElement}>

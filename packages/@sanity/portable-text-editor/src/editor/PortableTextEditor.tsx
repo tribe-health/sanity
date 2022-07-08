@@ -200,7 +200,17 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   componentDidUpdate(prevProps: PortableTextEditorProps) {
     if (this.props.readOnly !== prevProps.readOnly) {
       this.readOnly = !!this.props.readOnly
-      this.slateInstance.readOnly = !!this.props.readOnly
+      if (this.readOnly === false) {
+        this.slateInstance = withPortableText(this.slateInstance, {
+          change$: this.change$,
+          incomingPatches$: this.incomingPatches$,
+          keyGenerator: this.keyGenerator,
+          maxBlocks: this.maxBlocks,
+          portableTextFeatures: this.portableTextFeatures,
+          readOnly: this.readOnly,
+          syncValue: this.syncValue,
+        })
+      }
     }
     if (this.props.maxBlocks !== prevProps.maxBlocks) {
       this.maxBlocks =
