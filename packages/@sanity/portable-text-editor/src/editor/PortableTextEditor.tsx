@@ -84,6 +84,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       invalidValueResolution: null,
       selection: null,
       currentValue: props.value,
+      initialValue: [], // Created in the constructor.
     }
 
     // Test if we have a compiled schema type, if not, conveniently compile it
@@ -246,6 +247,10 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
 
   public syncValue: (callbackFn?: () => void) => void = (callbackFn) => {
     debug('Syncing value')
+    if (this.state.currentValue === this.props.value) {
+      debug('Value is current value')
+      return
+    }
     if (this.hasPendingLocalPatches.current === true) {
       debug('Not syncing value (has pending local patches)')
       retrySync(this.syncValue, callbackFn)
