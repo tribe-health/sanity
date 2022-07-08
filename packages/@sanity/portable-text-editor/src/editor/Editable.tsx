@@ -1,6 +1,6 @@
 import {BaseRange, Transforms} from 'slate'
 import {isEqual} from 'lodash'
-import React, {useCallback, useMemo, useEffect, forwardRef} from 'react'
+import React, {useCallback, useMemo, useEffect, forwardRef, useState} from 'react'
 import {Editable as SlateEditable, ReactEditor, withReact} from '@sanity/slate-react'
 import {
   EditorSelection,
@@ -96,9 +96,19 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   const portableTextEditor = usePortableTextEditor()
   const value = usePortableTextEditorValue()
   const ref = useForwardedRef(forwardedRef)
-  const slateEditor = portableTextEditor.slateInstance
+  const [active, setActive] = useState(false)
 
-  const {change$, keyGenerator, portableTextFeatures, readOnly} = portableTextEditor
+  const {
+    change$,
+    keyGenerator,
+    portableTextFeatures,
+    slateInstance: slateEditor,
+    readOnly,
+  } = portableTextEditor
+
+  const effectiveReadOnly = useMemo(() => {
+    return active ? readOnly : true
+  }, [active, readOnly])
 
   const isEmpty = useMemo(
     () => !value || isEqualToEmptyEditor(slateEditor.children, portableTextFeatures),
@@ -122,23 +132,27 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
   )
 
   // Update the Slate instance's plugins which are dependent on props for Editable
-  useMemo(
-    () => withEditableAPI(withInsertData(withHotKeys(withReact(slateEditor)))),
-    [slateEditor, withEditableAPI, withHotKeys, withInsertData]
-  )
+  useMemo(() => {
+    if (active) {
+      debug('Editable is in edit mode')
+      return withEditableAPI(withInsertData(withHotKeys(withReact(slateEditor))))
+    }
+    debug('Editable is in read only mode')
+    return withReact(slateEditor)
+  }, [active, slateEditor, withEditableAPI, withHotKeys, withInsertData])
 
   const renderElement = useCallback(
     (eProps) => (
       <Element
         {...eProps}
         portableTextFeatures={portableTextFeatures}
-        readOnly={readOnly}
+        readOnly={effectiveReadOnly}
         renderBlock={renderBlock}
         renderChild={renderChild}
         spellCheck={spellCheck}
       />
     ),
-    [portableTextFeatures, spellCheck, readOnly, renderBlock, renderChild]
+    [portableTextFeatures, spellCheck, effectiveReadOnly, renderBlock, renderChild]
   )
 
   const renderLeaf = useCallback(
@@ -156,7 +170,7 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
               renderAnnotation={renderAnnotation}
               renderChild={renderChild}
               renderDecorator={renderDecorator}
-              readOnly={readOnly}
+              readOnly={effectiveReadOnly}
             />
           </>
         )
@@ -169,14 +183,14 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
           renderAnnotation={renderAnnotation}
           renderChild={renderChild}
           renderDecorator={renderDecorator}
-          readOnly={readOnly}
+          readOnly={effectiveReadOnly}
         />
       )
     },
     [
+      effectiveReadOnly,
       keyGenerator,
       portableTextFeatures,
-      readOnly,
       renderAnnotation,
       renderChild,
       renderDecorator,
@@ -349,13 +363,14 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
         onFocus={handleOnFocus}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        readOnly={readOnly}
+        readOnly={effectiveReadOnly}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
         scrollSelectionIntoView={scrollSelectionIntoViewToSlate}
       />
     ),
     [
+      effectiveReadOnly,
       decorate,
       handleCopy,
       handleKeyDown,
@@ -363,17 +378,23 @@ export const PortableTextEditable = forwardRef(function PortableTextEditable(
       handleOnBlur,
       handleOnFocus,
       handlePaste,
-      readOnly,
       renderElement,
       renderLeaf,
       scrollSelectionIntoViewToSlate,
     ]
   )
+
+  const onSetActiveClick = useCallback(() => {
+    if (!active) {
+      setActive(true)
+    }
+  }, [active])
+
   if (!portableTextEditor) {
     return null
   }
   return (
-    <div ref={ref} {...restProps}>
+    <div ref={ref} {...restProps} onClick={onSetActiveClick}>
       {slateEditable}
     </div>
   )

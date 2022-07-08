@@ -84,7 +84,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       invalidValueResolution: null,
       selection: null,
       currentValue: props.value,
-      initialValue: [], // Created in the constructor.
+      initialValue: [], // Created in the constructor
     }
 
     // Test if we have a compiled schema type, if not, conveniently compile it
@@ -154,7 +154,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         ? undefined
         : parseInt(props.maxBlocks.toString(), 10) || undefined
     this.readOnly = props.readOnly || false
-
     // Validate the incoming value
     if (props.value) {
       const validation = validateValue(props.value, this.portableTextFeatures, this.keyGenerator)
@@ -245,7 +244,15 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
     )
   }
 
-  public syncValue: (callbackFn?: () => void) => void = (callbackFn) => {
+  public syncValue: (userCallbackFn?: () => void) => void = (userCallbackFn) => {
+    const callbackFn = () => {
+      debug('Updating slate instance')
+      this.slateInstance.onChange()
+      this.change$.next({type: 'value', value: this.props.value})
+      if (userCallbackFn) {
+        userCallbackFn()
+      }
+    }
     debug('Syncing value')
     if (this.state.currentValue === this.props.value) {
       debug('Value is current value')
@@ -267,8 +274,7 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         })
         this.slateInstance.onChange()
         this.setState({currentValue: this.props.value}, () => {
-          if (callbackFn) callbackFn()
-          this.change$.next({type: 'value', value: this.props.value})
+          callbackFn()
         })
       }
       const val = this.props.value || []
@@ -296,7 +302,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       })
       if (equal) {
         debug('Not syncing value (value is equal)')
-        if (callbackFn) callbackFn()
         return
       }
       debug('Validating')
@@ -343,22 +348,17 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       } else {
         this.slateInstance.children = slateValueFromProps
       }
-      this.slateInstance.onChange()
       this.setState({currentValue: this.props.value}, () => {
-        if (callbackFn) callbackFn()
-        this.change$.next({type: 'value', value: this.props.value})
+        callbackFn()
       })
       return
     }
     if (!this.state.currentValue) {
-      this.slateInstance.onChange()
       this.setState({currentValue: this.props.value}, () => {
-        if (callbackFn) callbackFn()
-        this.change$.next({type: 'value', value: this.props.value})
+        callbackFn()
       })
     }
     debug('Not syncing value (is up to date)')
-    if (callbackFn) callbackFn()
   }
 
   // Data storing
