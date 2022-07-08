@@ -1,3 +1,16 @@
+import {ObjectSchemaType} from '@sanity/types'
+
+/**
+ * @internal
+ */
+export interface SearchTerms {
+  query: string
+  types: ObjectSchemaType[]
+  limit?: number
+  offset?: number
+  includeDrafts?: boolean
+}
+
 /**
  * @internal
  */
@@ -54,7 +67,4 @@ export interface WeightedSearchOptions {
   unique?: boolean
 }
 
-export interface SearchOptions {
-  includeDrafts?: boolean
-  limit?: number
-}
+export type SearchOptions = Omit<SearchTerms, 'query'>

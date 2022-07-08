@@ -54,5 +54,9 @@ jspm_packages
 # TypeScript
 tsconfig.tsbuildinfo
 
+#IntelliJ
+.idea/
+*.iml
+
 # Sanity temp folders
 .sanity

@@ -15,7 +15,14 @@ import {
   SearchPath,
   SearchHit,
   SearchSpec,
+  SearchTerms,
 } from './types'
+
+type ObjectSchema = {
+  name: string
+  // eslint-disable-next-line camelcase
+  __experimental_search?: ObjectSchemaType['__experimental_search']
+}
 
 const combinePaths = flow([flatten, union, compact])
 
@@ -31,38 +38,39 @@ const pathWithMapper = ({mapWith, path}: SearchPath): string =>
   mapWith ? `${mapWith}(${path})` : path
 
 export function createWeightedSearch(
-  // eslint-disable-next-line camelcase
-  types: {name: string; __experimental_search?: ObjectSchemaType['__experimental_search']}[],
+  types: ObjectSchema[],
   client: SanityClient,
   options: WeightedSearchOptions = {}
-): (query: string, opts?: SearchOptions) => Observable<WeightedHit[]> {
+): (query: string, opts?: Omit<SearchTerms, 'query'>) => Observable<WeightedHit[]> {
   if (!types) {
     throw new Error('missing types')
   }
 
   const {filter, params, tag} = options
-  const searchSpec: SearchSpec[] = types.map((type) => ({
-    typeName: type.name,
-    paths: type.__experimental_search?.map((config) => ({
-      weight: config.weight,
-      path: joinPath(config.path),
-      mapWith: config.mapWith,
-    })),
-  }))
-
-  const combinedSearchPaths = combinePaths(
-    searchSpec.map((configForType) => configForType.paths?.map((opt) => pathWithMapper(opt)))
-  )
-
-  const selections = searchSpec.map((spec) => {
-    const constraint = `_type == "${spec.typeName}" => `
-    const selection = `{ ${spec.paths?.map((cfg, i) => `"w${i}": ${pathWithMapper(cfg)}`)} }`
-    return `${constraint}${selection}`
-  })
 
   // this is the actual search function that takes the search string and returns the hits
-  return function search(queryString: string, searchOpts: SearchOptions = {}) {
-    const terms = uniq(compact(tokenize(toLower(queryString))))
+  return function search(queryString: string, searchOpts: SearchOptions = {types: []}) {
+    const searchTerms = {query: queryString, ...searchOpts}
+    const searchSpec: SearchSpec[] = searchTerms.types.map((type) => ({
+      typeName: type.name,
+      paths: type.__experimental_search?.map((config) => ({
+        weight: config.weight,
+        path: joinPath(config.path),
+        mapWith: config.mapWith,
+      })),
+    }))
+
+    const combinedSearchPaths = combinePaths(
+      searchSpec.map((configForType) => configForType.paths?.map((opt) => pathWithMapper(opt)))
+    )
+
+    const selections = searchSpec.map((spec) => {
+      const constraint = `_type == "${spec.typeName}" => `
+      const selection = `{ ${spec.paths?.map((cfg, i) => `"w${i}": ${pathWithMapper(cfg)}`)} }`
+      return `${constraint}${selection}`
+    })
+
+    const terms = uniq(compact(tokenize(toLower(searchTerms.query))))
     const constraints = terms
       .map((term, i) => combinedSearchPaths.map((joinedPath: any) => `${joinedPath} match $t${i}`))
       .filter((constraint) => constraint.length > 0)
@@ -75,15 +83,18 @@ export function createWeightedSearch(
     ].filter(Boolean)
 
     const selection = selections.length > 0 ? `...select(${selections.join(',\n')})` : ''
-    const query = `*[${filters.join('&&')}][0...$__limit]{_type, _id, ${selection}}`
+    const query = `*[${filters.join('&&')}][$__offset...$__limit]{_type, _id, ${selection}}`
 
+    const offset = searchTerms.offset ?? 0
+    const limit = (searchTerms.limit ?? searchOpts.limit ?? 1000) + offset
     return client.observable
       .fetch(
         query,
         {
           ...toGroqParams(terms),
           __types: searchSpec.map((spec) => spec.typeName),
-          __limit: searchOpts.limit ?? 1000,
+          __limit: limit,
+          __offset: offset,
           ...(params || {}),
         },
         {tag}

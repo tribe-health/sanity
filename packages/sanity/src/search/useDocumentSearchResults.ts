@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react'
+import {useCallback, useEffect, useMemo, useState} from 'react'
 import {concat, EMPTY, Observable, of, Subject, timer} from 'rxjs'
 import {
   catchError,
@@ -12,10 +12,10 @@ import {
 import {useClient, useSchema} from '../hooks'
 import {isNonNullable} from '../util'
 import {createSearch} from './search'
-import {WeightedHit} from './weighted/types'
+import {SearchTerms, WeightedHit} from './weighted/types'
 
 export interface DocumentSearchParams {
-  options: {includeDrafts: boolean; limit: number}
+  options: Omit<SearchTerms, 'query'>
   query: string
 }
 
@@ -42,18 +42,16 @@ const LOADING_STATE: DocumentSearchResultsState = {
 // to display the search results until the user has finished typing.
 const DEBOUNCE_VALUE = 400
 
-export function useDocumentSearchResults(props: {
-  includeDrafts?: boolean
-  limit?: number
-  query: string
-}): DocumentSearchResultsState {
+export function useDocumentSearch(): {
+  state: DocumentSearchResultsState
+  search: (params: SearchTerms) => void
+} {
   const client = useClient()
   const schema = useSchema()
-  const {includeDrafts = false, limit = 1000, query: queryProp} = props
   const [state, setState] = useState<DocumentSearchResultsState>(EMPTY_STATE)
-  const paramsSubject = useMemo(() => new Subject<DocumentSearchParams>(), [])
+  const paramsSubject = useMemo(() => new Subject<SearchTerms>(), [])
 
-  const search = useMemo(() => createSearch(client, schema), [client, schema])
+  const runSearch = useMemo(() => createSearch(client, schema), [client, schema])
 
   const state$ = useMemo(
     () =>
@@ -62,12 +60,12 @@ export function useDocumentSearchResults(props: {
         distinctUntilChanged(),
         filter(isNonNullable),
         switchMap(
-          ({query, options}): Observable<DocumentSearchResultsState> =>
-            query
+          (terms): Observable<DocumentSearchResultsState> =>
+            terms.query || terms.types?.length
               ? concat(
                   of(LOADING_STATE),
                   timer(DEBOUNCE_VALUE).pipe(mergeMapTo(EMPTY)),
-                  search(query, options).pipe(
+                  runSearch(terms.query, terms).pipe(
                     map((results) => ({loading: false, error: null, value: results})),
                     catchError((error) => {
                       return of({loading: false, error, value: []})
@@ -77,15 +75,15 @@ export function useDocumentSearchResults(props: {
               : of(EMPTY_STATE)
         )
       ),
-    [paramsSubject, search]
+    [paramsSubject, runSearch]
   )
 
-  useEffect(() => {
-    paramsSubject.next({
-      options: {includeDrafts, limit},
-      query: queryProp,
-    })
-  }, [includeDrafts, limit, queryProp, paramsSubject])
+  const search = useCallback(
+    (params: SearchTerms) => {
+      paramsSubject.next(params)
+    },
+    [paramsSubject]
+  )
 
   useEffect(() => {
     const sub = state$.subscribe(setState)
@@ -94,6 +92,17 @@ export function useDocumentSearchResults(props: {
       sub.unsubscribe()
     }
   }, [state$])
+
+  return {state, search}
+}
+
+export function useDocumentSearchResults(props: SearchTerms): DocumentSearchResultsState {
+  const {state, search} = useDocumentSearch()
+  const {includeDrafts = false, limit = 1000, query, offset, types} = props
+
+  useEffect(() => {
+    search({query, includeDrafts, limit, types, offset})
+  }, [includeDrafts, limit, query, types, offset, search])
 
   return state
 }

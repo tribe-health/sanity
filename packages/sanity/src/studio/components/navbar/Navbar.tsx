@@ -34,6 +34,7 @@ import {SearchField} from './search'
 import {ToolMenu as DefaultToolMenu} from './tools/ToolMenu'
 import {ChangelogButton} from './changelog'
 import {WorkspaceMenuButton} from './workspace'
+import {OmnisearchField} from './search/findability-temp/OmnisearchField'
 
 const RootLayer = styled(Layer)`
   min-height: auto;
@@ -245,6 +246,7 @@ export function Navbar(props: NavbarProps) {
                       setSearchInputElement={setSearchInputElement}
                       relatedElements={searchRelatedElements}
                     />
+                    <OmnisearchField />
                   </Box>
 
                   {shouldRender.searchFullscreen && (
