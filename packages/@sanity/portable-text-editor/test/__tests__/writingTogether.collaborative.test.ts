@@ -165,11 +165,11 @@ describe('collaborate editing', () => {
         ],
       },
       {
-        _key: 'B-3',
+        _key: 'B-5',
         _type: 'block',
         children: [
           {
-            _key: 'B-2',
+            _key: 'B-3',
             _type: 'span',
             marks: [],
             text: '',
@@ -183,8 +183,8 @@ describe('collaborate editing', () => {
     const selectionB = await editorB.getSelection()
     expect(selectionA).toEqual(desiredSelectionA)
     expect(selectionB).toEqual({
-      anchor: {offset: 0, path: [{_key: 'B-3'}, 'children', {_key: 'B-2'}]},
-      focus: {offset: 0, path: [{_key: 'B-3'}, 'children', {_key: 'B-2'}]},
+      anchor: {offset: 0, path: [{_key: 'B-5'}, 'children', {_key: 'B-3'}]},
+      focus: {offset: 0, path: [{_key: 'B-5'}, 'children', {_key: 'B-3'}]},
     })
   })
 
@@ -430,11 +430,11 @@ describe('collaborate editing', () => {
           "style": "normal",
         },
         Object {
-          "_key": "A-3",
+          "_key": "A-5",
           "_type": "block",
           "children": Array [
             Object {
-              "_key": "A-2",
+              "_key": "A-3",
               "_type": "span",
               "marks": Array [],
               "text": "",
@@ -444,11 +444,11 @@ describe('collaborate editing', () => {
           "style": "normal",
         },
         Object {
-          "_key": "A-5",
+          "_key": "A-9",
           "_type": "block",
           "children": Array [
             Object {
-              "_key": "A-4",
+              "_key": "A-7",
               "_type": "span",
               "marks": Array [],
               "text": "A new line appears there!",
@@ -475,8 +475,8 @@ describe('collaborate editing', () => {
     `)
     const selectionA = await editorA.getSelection()
     expect(selectionA).toEqual({
-      anchor: {path: [{_key: 'A-5'}, 'children', {_key: 'A-4'}], offset: 18},
-      focus: {path: [{_key: 'A-5'}, 'children', {_key: 'A-4'}], offset: 18},
+      anchor: {path: [{_key: 'A-9'}, 'children', {_key: 'A-7'}], offset: 18},
+      focus: {path: [{_key: 'A-9'}, 'children', {_key: 'A-7'}], offset: 18},
     })
     const selectionB = await editorB.getSelection()
     expect(selectionB).toEqual({

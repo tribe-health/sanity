@@ -23,20 +23,6 @@ export function createPatchToOperations(
   snapshot: PortableTextBlock[] | undefined,
   previousSnapshot: PortableTextBlock[] | undefined
 ) => boolean {
-  const placeholderBlock: Descendant = {
-    _type: portableTextFeatures.types.block.name,
-    _key: keyGenerator(),
-    style: portableTextFeatures.styles[0].value,
-    markDefs: [],
-    children: [
-      {
-        _type: 'span',
-        _key: keyGenerator(),
-        text: '',
-        marks: [],
-      },
-    ],
-  }
   function diffMatchPatch(editor: Editor, patch: DiffMatchPatch) {
     const blockKey = findLastKey([patch.path[0]])
     const blockIndex = editor.children.findIndex((node, indx) => {
@@ -264,7 +250,7 @@ export function createPatchToOperations(
       editor.children.forEach((c, i) => {
         Transforms.removeNodes(editor, {at: [i]})
       })
-      Transforms.insertNodes(editor, [placeholderBlock], {at: [0]})
+      Transforms.insertNodes(editor, editor.createPlaceholderBlock(), {at: [0]})
       Transforms.select(editor, {
         focus: {path: [0, 0], offset: 0},
         anchor: {path: [0, 0], offset: 0},

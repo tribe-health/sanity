@@ -200,17 +200,15 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
   componentDidUpdate(prevProps: PortableTextEditorProps) {
     if (this.props.readOnly !== prevProps.readOnly) {
       this.readOnly = !!this.props.readOnly
-      if (this.readOnly === false) {
-        this.slateInstance = withPortableText(this.slateInstance, {
-          change$: this.change$,
-          incomingPatches$: this.incomingPatches$,
-          keyGenerator: this.keyGenerator,
-          maxBlocks: this.maxBlocks,
-          portableTextFeatures: this.portableTextFeatures,
-          readOnly: this.readOnly,
-          syncValue: this.syncValue,
-        })
-      }
+      this.slateInstance = withPortableText(this.slateInstance, {
+        change$: this.change$,
+        incomingPatches$: this.incomingPatches$,
+        keyGenerator: this.keyGenerator,
+        maxBlocks: this.maxBlocks,
+        portableTextFeatures: this.portableTextFeatures,
+        readOnly: this.readOnly,
+        syncValue: this.syncValue,
+      })
     }
     if (this.props.maxBlocks !== prevProps.maxBlocks) {
       this.maxBlocks =
@@ -263,7 +261,6 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
         userCallbackFn()
       }
     }
-    debug('Syncing value')
     if (this.state.currentValue === this.props.value) {
       debug('Value is current value')
       return
@@ -273,96 +270,95 @@ export class PortableTextEditor extends React.Component<PortableTextEditorProps,
       retrySync(this.syncValue, callbackFn)
       return
     }
-    if (this.state.currentValue !== this.props.value) {
-      let equal = true
-      if (
-        isEqualToEmptyEditor(this.slateInstance.children, this.portableTextFeatures) &&
-        this.props.value
-      ) {
-        this.slateInstance.children = toSlateValue(this.props.value, {
-          portableTextFeatures: this.portableTextFeatures,
-        })
-        this.slateInstance.onChange()
-        this.setState({currentValue: this.props.value}, () => {
-          callbackFn()
-        })
-      }
-      const val = this.props.value || []
-      val.forEach((blk, index) => {
-        if (this.slateInstance.isTextBlock(blk)) {
-          const compareBlock = toSlateValue(
-            [blk],
-            {portableTextFeatures: this.portableTextFeatures},
-            KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
-          )[0]
-          if (!isEqual(compareBlock, this.slateInstance.children[index])) {
-            equal = false
-          }
-        } else {
-          const blkVal = this.slateInstance.children[index]
-          if (
-            !blkVal ||
-            (blkVal &&
-              'value' in blkVal &&
-              !isEqual(blk, {_key: blkVal._key, _type: blkVal._type, ...blkVal.value}))
-          ) {
-            equal = false
-          }
-        }
-      })
-      if (equal) {
-        debug('Not syncing value (value is equal)')
-        return
-      }
-      debug('Validating')
-      const validation = validateValue(
+    if (
+      isEqualToEmptyEditor(this.slateInstance.children, this.portableTextFeatures) &&
+      this.props.value
+    ) {
+      this.slateInstance.children = toSlateValue(
         this.props.value,
-        this.portableTextFeatures,
-        this.keyGenerator
+        {
+          portableTextFeatures: this.portableTextFeatures,
+        },
+        KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
       )
-      if (this.props.value && !validation.valid) {
-        this.change$.next({
-          type: 'invalidValue',
-          resolution: validation.resolution,
-          value: this.props.value,
-        })
-        this.setState({invalidValueResolution: validation.resolution})
-      }
-
-      debug('Syncing value')
-      const slateValueFromProps =
-        (this.props.value || []).length > 0
-          ? toSlateValue(
-              this.props.value,
-              {portableTextFeatures: this.portableTextFeatures},
-              KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
-            )
-          : [this.slateInstance.createPlaceholderBlock()]
-      if (slateValueFromProps) {
-        const originalChildren = [...this.slateInstance.children]
-        slateValueFromProps.forEach((n, i) => {
-          const existing = originalChildren[i]
-          if (existing && !isEqual(n, existing)) {
-            originalChildren.splice(i, 1, n)
-          } else if (!existing) {
-            originalChildren.push(n)
-          }
-        })
-        if (originalChildren.length > slateValueFromProps.length) {
-          originalChildren.splice(
-            slateValueFromProps.length,
-            this.slateInstance.children.length - slateValueFromProps.length
-          )
-        }
-        this.slateInstance.children = originalChildren
-      } else {
-        this.slateInstance.children = slateValueFromProps
-      }
+      this.slateInstance.onChange()
       this.setState({currentValue: this.props.value}, () => {
         callbackFn()
       })
       return
     }
+
+    const isEqualToValue = !(this.props.value || []).some((blk, index) => {
+      if (this.slateInstance.isTextBlock(blk)) {
+        const compareBlock = toSlateValue(
+          [blk],
+          {portableTextFeatures: this.portableTextFeatures},
+          KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
+        )[0]
+        if (!isEqual(compareBlock, this.slateInstance.children[index])) {
+          return true
+        }
+      } else {
+        const slateBlock = this.slateInstance.children[index]
+        if (
+          !slateBlock ||
+          (slateBlock &&
+            'value' in slateBlock &&
+            !isEqual(blk, {_key: slateBlock._key, _type: slateBlock._type, ...slateBlock.value}))
+        ) {
+          return true
+        }
+      }
+      return false
+    })
+    if (isEqualToValue) {
+      debug('Not syncing value (value is equal)')
+      return
+    }
+    debug('Validating')
+    const validation = validateValue(this.props.value, this.portableTextFeatures, this.keyGenerator)
+    if (this.props.value && !validation.valid) {
+      this.change$.next({
+        type: 'invalidValue',
+        resolution: validation.resolution,
+        value: this.props.value,
+      })
+      this.setState({invalidValueResolution: validation.resolution})
+    }
+
+    debug('Syncing value')
+
+    if (this.props.value) {
+      const slateValueFromProps =
+        this.props.value &&
+        toSlateValue(
+          this.props.value,
+          {portableTextFeatures: this.portableTextFeatures},
+          KEY_TO_SLATE_ELEMENT.get(this.slateInstance)
+        )
+      const originalChildren = [...this.slateInstance.children]
+      slateValueFromProps.forEach((n, i) => {
+        const existing = originalChildren[i]
+        if (existing && !isEqual(n, existing)) {
+          originalChildren.splice(i, 1, n)
+        } else if (!existing) {
+          originalChildren.push(n)
+        }
+      })
+      if (originalChildren.length > slateValueFromProps.length) {
+        originalChildren.splice(
+          slateValueFromProps.length,
+          this.slateInstance.children.length - slateValueFromProps.length
+        )
+      }
+      this.slateInstance.children = originalChildren
+    } else {
+      this.slateInstance.children = [this.slateInstance.createPlaceholderBlock()]
+    }
+    this.setState({currentValue: this.props.value}, () => {
+      callbackFn()
+    })
+    // Set initial currentValue
     if (!this.state.currentValue) {
       this.setState({currentValue: this.props.value}, () => {
         callbackFn()
